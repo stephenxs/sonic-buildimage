@@ -117,7 +117,7 @@ class Chassis(ChassisBase):
             self._sfp_list.append(sfp_module)
 
         # Initialize thermals
-        initialize_thermals(self.sku, self._thermal_list)
+        initialize_thermals(self.sku, self._thermal_list, self._psu_list)
 
         # Initialize EEPROM
         self.eeprom = Eeprom()

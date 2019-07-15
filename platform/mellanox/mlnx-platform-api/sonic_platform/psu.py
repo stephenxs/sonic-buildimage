@@ -106,7 +106,7 @@ class Psu(PsuBase):
             voltage = self._read_generic_file(os.path.join(self.psu_path, self.psu_voltage), 0)
             return float(voltage) / 1000
         else:
-            raise NotImplementedError
+            return None
 
     def get_current(self):
         """
@@ -119,7 +119,7 @@ class Psu(PsuBase):
             amperes = self._read_generic_file(os.path.join(self.psu_path, self.psu_current), 0)
             return float(amperes) / 1000
         else:
-            raise NotImplementedError
+            return None
 
     def get_power(self):
         """
@@ -132,4 +132,4 @@ class Psu(PsuBase):
             power = self._read_generic_file(os.path.join(self.psu_path, self.psu_power), 0)
             return float(power) / 1000000
         else:
-            raise NotImplementedError
+            return None
