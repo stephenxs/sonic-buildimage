@@ -41,9 +41,12 @@ HWMGMT_SYSTEM_ROOT = '/var/run/hw-management/system/'
 REBOOT_CAUSE_ROOT = HWMGMT_SYSTEM_ROOT
 
 REBOOT_CAUSE_POWER_LOSS_FILE = 'reset_main_pwr_fail'
+REBOOT_CAUSE_AUX_POWER_LOSS_FILE = 'reset_aux_pwr_or_ref'
 REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC_FILE = 'reset_asic_thermal'
 REBOOT_CAUSE_WATCHDOG_FILE = 'reset_hotswap_or_wd'
 REBOOT_CAUSE_MLNX_FIRMWARE_RESET = 'reset_fw_reset'
+REBOOT_CAUSE_LONG_PB = 'reset_long_pb'
+REBOOT_CAUSE_SHORT_PB = 'reset_short_pb'
 
 REBOOT_CAUSE_FILE_LENGTH = 1
 
@@ -193,7 +196,10 @@ class Chassis(ChassisBase):
         /var/run/hwmanagement/system (which is defined as REBOOT_CAUSE_ROOT)
         If a reboot cause file doesn't exists, returns '0'.
         '''
-        return bool(int(self._read_generic_file(join(REBOOT_CAUSE_ROOT, filename), REBOOT_CAUSE_FILE_LENGTH).rstrip('\n')))
+        try:
+            return bool(int(self._read_generic_file(join(REBOOT_CAUSE_ROOT, filename), REBOOT_CAUSE_FILE_LENGTH).rstrip('\n')))
+        except:
+            return False
 
     def get_reboot_cause(self):
         """
@@ -210,6 +216,8 @@ class Chassis(ChassisBase):
         minor_cause = ''
         if self._verify_reboot_cause(REBOOT_CAUSE_POWER_LOSS_FILE):
             major_cause = self.REBOOT_CAUSE_POWER_LOSS
+        elif self._verify_reboot_cause(REBOOT_CAUSE_AUX_POWER_LOSS_FILE):
+            major_cause = self.REBOOT_CAUSE_POWER_LOSS
         elif self._verify_reboot_cause(REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC_FILE):
             major_cause = self.REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC
         elif self._verify_reboot_cause(REBOOT_CAUSE_WATCHDOG_FILE):
@@ -218,9 +226,12 @@ class Chassis(ChassisBase):
             major_cause = self.REBOOT_CAUSE_HARDWARE_OTHER
             if self._verify_reboot_cause(REBOOT_CAUSE_MLNX_FIRMWARE_RESET):
                 minor_cause = "Reset by ASIC firmware"
+            elif self._verify_reboot_cause(REBOOT_CAUSE_LONG_PB):
+                minor_cause = "Reset by long press on power button"
+            elif self._verify_reboot_cause(REBOOT_CAUSE_SHORT_PB):
+                minor_cause = "Reset by short press on power button"
             else:
                 major_cause = self.REBOOT_CAUSE_NON_HARDWARE
-
         return major_cause, minor_cause
 
     def _get_cpld_version(self, version_file):
