@@ -73,7 +73,7 @@ def main():
         import sonic_platform.platform
 
         # Check if the previous reboot was caused by hardware
-        platform = sonic_platform.platform.Platform()
+        platform = sonic_platform.platform.Platform(True)
 
         chassis = platform.get_chassis()
 

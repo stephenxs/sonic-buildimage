@@ -13,9 +13,9 @@ except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
 class Platform(PlatformBase):
-    def __init__(self, daemon = None):
+    def __init__(self, is_host = False):
         PlatformBase.__init__(self)
-        if daemon is None:
+        if is_host:
             self._chassis = Chassis()
             self._chassis.initialize_watchdog()
         else:
