@@ -17,7 +17,7 @@ try:
     from sonic_platform.thermal import Thermal, initialize_thermals
     from sonic_platform.watchdog import get_watchdog
     from sonic_daemon_base.daemon_base import Logger
-    from eeprom import Eeprom
+    from sonic_platform.eeprom import Eeprom
     from os import listdir
     from os.path import isfile, join
     import sys
@@ -119,7 +119,7 @@ class Chassis(ChassisBase):
         initialize_thermals(self.sku_name, self._thermal_list, self._psu_list)
 
         # Initialize EEPROM
-        self.eeprom = Eeprom()
+        self._eeprom = Eeprom()
 
         # Initialize component list
         self._component_name_list.append(COMPONENT_BIOS)
@@ -160,7 +160,7 @@ class Chassis(ChassisBase):
             A string containing the MAC address in the format
             'XX:XX:XX:XX:XX:XX'
         """
-        return self.eeprom.get_base_mac()
+        return self._eeprom.get_base_mac()
 
     def get_serial_number(self):
         """
@@ -169,7 +169,7 @@ class Chassis(ChassisBase):
         Returns:
             A string containing the hardware serial number for this chassis.
         """
-        return self.eeprom.get_serial_number()
+        return self._eeprom.get_serial_number()
 
     def get_system_eeprom_info(self):
         """
@@ -180,7 +180,7 @@ class Chassis(ChassisBase):
             OCP ONIE TlvInfo EEPROM format and values are their corresponding
             values.
         """
-        return self.eeprom.get_system_eeprom_info()
+        return self._eeprom.get_system_eeprom_info()
 
     def _read_generic_file(self, filename, len):
         """
