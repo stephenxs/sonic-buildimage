@@ -182,6 +182,16 @@ class DaemonBase(object):
 
         return platform_util
 
+    def load_chassis(self):
+        try:
+            import sonic_platform.platform
+            platform = sonic_platform.platform.Platform()
+            chassis = platform.get_chassis()
+            return chassis
+        except ImportError, e:
+            print "Import module sonic_platform failed due to {}".format(repr(e))
+            return None
+
     # Runs daemon
     def run(self):
         raise NotImplementedError()
