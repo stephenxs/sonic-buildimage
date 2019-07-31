@@ -12,6 +12,11 @@ except ImportError as e:
 
 # sfp supports dom
 XCVR_DOM_CAPABILITY_DOM_SUPPORT_BIT = 0x40
+
+# sfp module threshold offset and width
+SFP_MODULE_THRESHOLD_OFFSET = 0
+SFP_MODULE_THRESHOLD_WIDTH = 56
+
 # I2C page size for sfp
 SFP_I2C_PAGE_SIZE = 256
 
@@ -578,8 +583,6 @@ class SfpUtil(SfpUtilBase):
             return transceiver_dom_threshold_info_dict
         else:
             offset = 256
-            SFP_MODULE_THRESHOLD_OFFSET = 0
-            SFP_MODULE_THRESHOLD_WIDTH = 56
 
             eeprom_raw = ['0'] * SFP_I2C_PAGE_SIZE
             eeprom_raw[XCVR_DOM_CAPABILITY_OFFSET : XCVR_DOM_CAPABILITY_OFFSET + XCVR_DOM_CAPABILITY_WIDTH] = \
