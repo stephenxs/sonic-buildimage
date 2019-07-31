@@ -90,7 +90,7 @@ class Chassis(ChassisBase):
             self._psu_list.append(psu)
 
         # Initialize watchdog
-        self._watchdog = get_watchdog()
+        # self._watchdog = get_watchdog()
 
         # Initialize FAN list
         multi_rotor_in_drawer = False
