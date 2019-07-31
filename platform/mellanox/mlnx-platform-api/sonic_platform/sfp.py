@@ -229,7 +229,7 @@ class SFP(SfpBase):
             bool: True if device is present, False if not
         """
         presence = False
-        ethtool_cmd = "ethtool -m sfp{} 2>/dev/null".format(self.index)
+        ethtool_cmd = "ethtool -m sfp{} hex on offset 0 length 4 2>/dev/null".format(self.index)
         try:
             proc = subprocess.Popen(ethtool_cmd, stdout=subprocess.PIPE, shell=True, stderr=subprocess.STDOUT)
             stdout = proc.communicate()[0]
@@ -261,6 +261,15 @@ class SFP(SfpBase):
         return eeprom_raw
 
     def _dom_capability_detect(self):
+        if not self.get_presence():
+            self.dom_supported = False
+            self.dom_temp_supported = False
+            self.dom_volt_supported = False
+            self.dom_rx_power_supported = False
+            self.dom_tx_power_supported = False
+            self.calibration = 0
+            return
+
         if self.sfp_type == "QSFP":
             self.calibration = 1
             sfpi_obj = sff8436InterfaceId()
@@ -578,30 +587,27 @@ class SFP(SfpBase):
         """
         transceiver_dom_info_dict = {}
 
+        dom_info_dict_keys = ['temperature',    'voltage',
+                              'rx1power',       'rx2power',
+                              'rx3power',       'rx4power',
+                              'tx1bias',        'tx2bias',
+                              'tx3bias',        'tx4bias',
+                              'tx1power',       'tx2power',
+                              'tx3power',       'tx4power'
+                             ]
+        transceiver_dom_info_dict = dict.fromkeys(dom_info_dict_keys, 'N/A')
+
         if self.sfp_type == OSFP_TYPE:
-            transceiver_dom_info_dict['temperature'] = 'N/A'
-            transceiver_dom_info_dict['voltage'] = 'N/A'
-            transceiver_dom_info_dict['rx1power'] = 'N/A'
-            transceiver_dom_info_dict['rx2power'] = 'N/A'
-            transceiver_dom_info_dict['rx3power'] = 'N/A'
-            transceiver_dom_info_dict['rx4power'] = 'N/A'
-            transceiver_dom_info_dict['tx1bias'] = 'N/A'
-            transceiver_dom_info_dict['tx2bias'] = 'N/A'
-            transceiver_dom_info_dict['tx3bias'] = 'N/A'
-            transceiver_dom_info_dict['tx4bias'] = 'N/A'
-            transceiver_dom_info_dict['tx1power'] = 'N/A'
-            transceiver_dom_info_dict['tx2power'] = 'N/A'
-            transceiver_dom_info_dict['tx3power'] = 'N/A'
-            transceiver_dom_info_dict['tx4power'] = 'N/A'
+            pass
 
         elif self.sfp_type == QSFP_TYPE:
             if not self.dom_supported:
-                return None
+                return transceiver_dom_info_dict
 
             offset = 0
             sfpd_obj = sff8436Dom()
             if sfpd_obj is None:
-                return None
+                return transceiver_dom_info_dict
 
             if self.dom_temp_supported:
                 dom_temperature_raw = self._read_eeprom_specific_bytes((offset + QSFP_TEMPE_OFFSET), QSFP_TEMPE_WIDTH)
@@ -610,12 +616,8 @@ class SFP(SfpBase):
                     temp = self._convert_string_to_num(dom_temperature_data['data']['Temperature']['value'])
                     if temp is not None:
                         transceiver_dom_info_dict['temperature'] = temp
-                    else:
-                        transceiver_dom_info_dict['temperature'] = 'N/A'
                 else:
-                    return None
-            else:
-                transceiver_dom_info_dict['temperature'] = 'N/A'
+                    return transceiver_dom_info_dict
 
             if self.dom_volt_supported:
                 dom_voltage_raw = self._read_eeprom_specific_bytes((offset + QSFP_VOLT_OFFSET), QSFP_VOLT_WIDTH)
@@ -624,38 +626,26 @@ class SFP(SfpBase):
                     volt = self._convert_string_to_num(dom_voltage_data['data']['Vcc']['value'])
                     if volt is not None:
                         transceiver_dom_info_dict['voltage'] = volt
-                    else:
-                        transceiver_dom_info_dict['voltage'] = 'N/A'
                 else:
-                    return None
-            else:
-                transceiver_dom_info_dict['voltage'] = 'N/A'
+                    return transceiver_dom_info_dict
 
             dom_channel_monitor_raw = self._read_eeprom_specific_bytes((offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH)
             if dom_channel_monitor_raw is not None:
                 dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params_with_tx_power(dom_channel_monitor_raw, 0)
+            else:
+                return transceiver_dom_info_dict
 
             if self.dom_tx_power_supported:
                 transceiver_dom_info_dict['tx1power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['TX1Power']['value'])
                 transceiver_dom_info_dict['tx2power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['TX2Power']['value'])
                 transceiver_dom_info_dict['tx3power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['TX3Power']['value'])
                 transceiver_dom_info_dict['tx4power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['TX4Power']['value'])
-            else:
-                transceiver_dom_info_dict['tx1power'] = 'N/A'
-                transceiver_dom_info_dict['tx2power'] = 'N/A'
-                transceiver_dom_info_dict['tx3power'] = 'N/A'
-                transceiver_dom_info_dict['tx4power'] = 'N/A'
 
             if self.dom_rx_power_supported:
                 transceiver_dom_info_dict['rx1power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['RX1Power']['value'])
                 transceiver_dom_info_dict['rx2power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['RX2Power']['value'])
                 transceiver_dom_info_dict['rx3power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['RX3Power']['value'])
                 transceiver_dom_info_dict['rx4power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['RX4Power']['value'])
-            else:
-                transceiver_dom_info_dict['rx1power'] = 'N/A'
-                transceiver_dom_info_dict['rx2power'] = 'N/A'
-                transceiver_dom_info_dict['rx3power'] = 'N/A'
-                transceiver_dom_info_dict['rx4power'] = 'N/A'
 
             transceiver_dom_info_dict['tx1bias'] = dom_channel_monitor_data['data']['TX1Bias']['value']
             transceiver_dom_info_dict['tx2bias'] = dom_channel_monitor_data['data']['TX2Bias']['value']
@@ -664,46 +654,37 @@ class SFP(SfpBase):
 
         else:
             if not self.dom_supported:
-                return None
+                return transceiver_dom_info_dict
 
             offset = 256
             sfpd_obj = sff8472Dom()
             if sfpd_obj is None:
-                return None
+                return transceiver_dom_info_dict
             sfpd_obj._calibration_type = self.calibration
             
             dom_temperature_raw = self._read_eeprom_specific_bytes((offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
             else:
-                return None
+                return transceiver_dom_info_dict
 
             dom_voltage_raw = self._read_eeprom_specific_bytes((offset + SFP_VOLT_OFFSET), SFP_VOLT_WIDTH)
             if dom_voltage_raw is not None:
                 dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
             else:
-                return None
+                return transceiver_dom_info_dict
 
             dom_channel_monitor_raw = self._read_eeprom_specific_bytes((offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
             if dom_channel_monitor_raw is not None:
                 dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
             else:
-                return None
+                return transceiver_dom_info_dict
 
             transceiver_dom_info_dict['temperature'] = self._convert_string_to_num(dom_temperature_data['data']['Temperature']['value'])
             transceiver_dom_info_dict['voltage'] = self._convert_string_to_num(dom_voltage_data['data']['Vcc']['value'])
             transceiver_dom_info_dict['rx1power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['RXPower']['value'])
-            transceiver_dom_info_dict['rx2power'] = 'N/A'
-            transceiver_dom_info_dict['rx3power'] = 'N/A'
-            transceiver_dom_info_dict['rx4power'] = 'N/A'
             transceiver_dom_info_dict['tx1bias'] = self._convert_string_to_num(dom_channel_monitor_data['data']['TXBias']['value'])
-            transceiver_dom_info_dict['tx2bias'] = 'N/A'
-            transceiver_dom_info_dict['tx3bias'] = 'N/A'
-            transceiver_dom_info_dict['tx4bias'] = 'N/A'
             transceiver_dom_info_dict['tx1power'] = self._convert_string_to_num(dom_channel_monitor_data['data']['TXPower']['value'])
-            transceiver_dom_info_dict['tx2power'] = 'N/A'
-            transceiver_dom_info_dict['tx3power'] = 'N/A'
-            transceiver_dom_info_dict['tx4power'] = 'N/A'
 
         return transceiver_dom_info_dict
 
@@ -1036,7 +1017,7 @@ class SFP(SfpBase):
             sfpd_obj = sff8472Dom()
             if sfpd_obj is None:
                 return None
-            sfpd_obj._calibration_type = 1
+            sfpd_obj._calibration_type = self.calibration
 
             if self.dom_supported:
                 dom_channel_monitor_raw = self._read_eeprom_specific_bytes((offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
@@ -1145,7 +1126,7 @@ class SFP(SfpBase):
                 return None
 
             if self.dom_supported:
-                sfpd_obj._calibration_type = 1
+                sfpd_obj._calibration_type = self.calibration
 
                 dom_channel_monitor_raw = self._read_eeprom_specific_bytes((offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
                 if dom_channel_monitor_raw is not None:
