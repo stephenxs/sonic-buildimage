@@ -90,7 +90,7 @@ class Chassis(ChassisBase):
             self._psu_list.append(psu)
 
         # Initialize watchdog
-        # self._watchdog = get_watchdog()
+        self._watchdog = None
 
         # Initialize FAN list
         multi_rotor_in_drawer = False
@@ -162,6 +162,29 @@ class Chassis(ChassisBase):
     def _get_port_position_tuple_by_sku_name(self):
         position_tuple = port_position_tuple_list[hwsku_dict_port[self.sku_name]]
         return position_tuple
+
+    def get_watchdog(self):
+        """
+        Retreives hardware watchdog device on this chassis
+
+        Returns:
+            An object derived from WatchdogBase representing the hardware
+            watchdog device
+
+        Note:
+            We overload this method to ensure that watchdog is only initialized
+            when it is referenced. Currently, only one daemon can open the watchdog.
+            To initialize watchdog in the constructor causes multiple daemon 
+            try opening watchdog when loading and constructing a chassis object
+            and fail. By doing so we can eliminate that risk.
+        """
+        try:
+            if self._watchdog is None:
+                self._watchdog = get_watchdog()
+        except Exception as e:
+            logger.log_info("Fail to load watchdog due to {}".format(repr(e)))
+
+        return self._watchdog
 
     def get_base_mac(self):
         """
