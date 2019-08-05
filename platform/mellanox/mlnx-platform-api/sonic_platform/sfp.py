@@ -196,6 +196,7 @@ class SFP(SfpBase):
         self._dom_capability_detect()
         self.sdk_handle = sdk_handle
         self.sdk_index = sfp_index
+        self.mypid = mypid
 
     def _open_sdk(self):
         rc = sxd_access_reg_init(self.mypid, None, 0)
