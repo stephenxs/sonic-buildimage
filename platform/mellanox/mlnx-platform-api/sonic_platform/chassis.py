@@ -14,6 +14,7 @@ try:
     from os import listdir
     from os.path import isfile, join
     import sys
+    import time
     import io
     import re
     import subprocess
@@ -106,8 +107,12 @@ class Chassis(ChassisBase):
 
     def initialize_sfp(self):
         from sonic_platform.sfp import SFP
+        from sonic_platform.sfp import initialize_sdk_handle
         from sonic_platform.sfp_event import sfp_event
         self.sfp_module = SFP
+
+        print "time start sfp {}".format(time.time())
+        self.sdk_handle, self.pid = initialize_sdk_handle()
 
         # Initialize SFP list
         port_position_tuple = self._get_port_position_tuple_by_sku_name()
@@ -118,11 +123,12 @@ class Chassis(ChassisBase):
 
         for index in range(self.PORT_START, self.PORT_END + 1):
             if index in range(self.QSFP_PORT_START, self.PORTS_IN_BLOCK + 1):
-                sfp_module = SFP(index, 'QSFP')
+                sfp_module = SFP(index, 'QSFP', self.sdk_handle, self.pid)
             else:
-                sfp_module = SFP(index, 'SFP')
+                sfp_module = SFP(index, 'SFP', self.sdk_handle, self.pid)
             self._sfp_list.append(sfp_module)
 
+        print "time finish sfp {}".format(time.time())
         # Initialize SFP event
         self.sfp_event = sfp_event()
         self.sfp_event.initialize()

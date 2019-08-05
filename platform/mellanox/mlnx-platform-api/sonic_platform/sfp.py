@@ -173,35 +173,31 @@ NVE_MASK = PORT_TYPE_MASK & (PORT_TYPE_NVE << PORT_TYPE_OFFSET)
 SYSLOG_IDENTIFIER = "mlnx-sfp"
 logger = Logger(SYSLOG_IDENTIFIER)
 
+#SDK initializing stuff, called from chassis
+def initialize_sdk_handle():
+    rc, sdk_handle = sx_api_open(None)
+    if (rc != SX_STATUS_SUCCESS):
+        logger.log_warning("Failed to open api handle, please check whether SDK is running.")
+        sdk_handle = None
+
+    mypid = os.getpid()
+
+    return sdk_handle, mypid
+
 class SFP(SfpBase):
     """Platform-specific SFP class"""
 
-    def __init__(self, sfp_index, sfp_type):
+    def __init__(self, sfp_index, sfp_type, sdk_handle, mypid):
         self.index = sfp_index + 1
         self.sfp_eeprom_path = "qsfp{}".format(self.index)
         self.sfp_status_path = "qsfp{}_status".format(self.index)
         self.sfp_type = sfp_type
         self.dom_tx_disable_supported = False
         self._dom_capability_detect()
-        self.sdk_handle = None
+        self.sdk_handle = sdk_handle
         self.sdk_index = sfp_index
 
-    #SDK initializing stuff
-    def _initialize_sdk_handle(self):
-        """
-        reference: device\mellanox\<sku>\pulgins\sfpreset.py
-        """
-        rc, self.sdk_handle = sx_api_open(None)
-        if (rc != SX_STATUS_SUCCESS):
-            logger.log_warning("Failed to open api handle, please check whether SDK is running.")
-            self.sdk_handle = None
-
-        self.mypid = os.getpid()
-
     def _open_sdk(self):
-        if self.sdk_handle is None:
-            self._initialize_sdk_handle()
-
         rc = sxd_access_reg_init(self.mypid, None, 0)
         if rc != 0:
             logger.log_warning("Failed to initializing register access, please check that SDK is running.")
