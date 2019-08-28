@@ -18,8 +18,8 @@ agentx
 {% endblock system_init %}
 !
 {% block interfaces %}
-{% if INTERFACE %}
 ! Enable link-detect (default disabled)
+{% if INTERFACE %}
 {% for (name, prefix) in INTERFACE|pfx_filter %}
 interface {{ name }}
 link-detect
