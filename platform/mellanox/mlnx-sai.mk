@@ -1,6 +1,6 @@
 # Mellanox SAI
 
-MLNX_SAI_VERSION = SAIRel1.14.2-master
+MLNX_SAI_VERSION = SAIRel1.14.3-master
 
 export MLNX_SAI_VERSION
 
