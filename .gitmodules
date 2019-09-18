@@ -65,4 +65,4 @@
 	url = https://github.com/p/redis-dump-load.git
 [submodule "platform/mellanox/mlnx-sai/SAI-Implementation"]
 	path = platform/mellanox/mlnx-sai/SAI-Implementation
-	url = https://github.com/Mellanox/SAI-Implementation
+	url = file:////auto/mswg/git/switchx/sai_interface.git
