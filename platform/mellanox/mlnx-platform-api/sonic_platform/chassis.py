@@ -10,6 +10,7 @@
 
 try:
     from sonic_platform_base.chassis_base import ChassisBase
+    from sonic_platform_base.component_base import ComponentBase
     from sonic_daemon_base.daemon_base import Logger
     from os import listdir
     from os.path import isfile, join
@@ -36,22 +37,6 @@ HWMGMT_SYSTEM_ROOT = '/var/run/hw-management/system/'
 REBOOT_CAUSE_ROOT = HWMGMT_SYSTEM_ROOT
 
 REBOOT_CAUSE_FILE_LENGTH = 1
-
-#version retrieving related definitions
-CPLD_VERSION_ROOT = HWMGMT_SYSTEM_ROOT
-
-CPLD1_VERSION_FILE = 'cpld1_version'
-CPLD2_VERSION_FILE = 'cpld2_version'
-CPLD_VERSION_MAX_LENGTH = 4
-
-FW_QUERY_VERSION_COMMAND = 'mlxfwmanager --query'
-BIOS_QUERY_VERSION_COMMAND = 'dmidecode -t 11'
-
-#components definitions
-COMPONENT_BIOS = "BIOS"
-COMPONENT_FIRMWARE = "ASIC-FIRMWARE"
-COMPONENT_CPLD1 = "CPLD1"
-COMPONENT_CPLD2 = "CPLD2"
 
 # Global logger class instance
 SYSLOG_IDENTIFIER = "mlnx-chassis-api"
@@ -140,10 +125,10 @@ class Chassis(ChassisBase):
 
     def initialize_components_list(self):
         # Initialize component list
-        self._component_name_list.append(COMPONENT_BIOS)
-        self._component_name_list.append(COMPONENT_FIRMWARE)
-        self._component_name_list.append(COMPONENT_CPLD1)
-        self._component_name_list.append(COMPONENT_CPLD2)
+        from sonic_platform.component import ComponentBIOS, ComponentCPLD, ComponentASIC_FW
+        self._component_list.append(ComponentBIOS())
+        self._component_list.append(ComponentCPLD())
+        self._component_list.append(ComponentASIC_FW())
 
     ##############################################
     # SFP methods
@@ -347,102 +332,6 @@ class Chassis(ChassisBase):
                 return self.REBOOT_CAUSE_HARDWARE_OTHER, reset_cause
 
         return self.REBOOT_CAUSE_NON_HARDWARE, ''
-
-    def _get_cpld_version(self, version_file):
-        cpld_version = self._read_generic_file(join(CPLD_VERSION_ROOT, version_file), CPLD_VERSION_MAX_LENGTH)
-        return cpld_version.rstrip('\n')
-
-    def _get_command_result(self, cmdline):
-        try:
-            proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE, shell=True, stderr=subprocess.STDOUT)
-            stdout = proc.communicate()[0]
-            proc.wait()
-            result = stdout.rstrip('\n')
-
-        except OSError, e:
-            result = ''
-
-        return result
-
-    def _get_firmware_version(self):
-        """
-        firmware version is retrieved via command 'mlxfwmanager --query'
-        which should return result in the following convention
-            admin@mtbc-sonic-01-2410:~$ sudo mlxfwmanager --query
-            Querying Mellanox devices firmware ...
-
-            Device #1:
-            ----------
-
-            Device Type:      Spectrum
-            Part Number:      MSN2410-CxxxO_Ax_Bx
-            Description:      Spectrum based 25GbE/100GbE 1U Open Ethernet switch with ONIE; 48 SFP28 ports; 8 QSFP28 ports; x86 dual core; RoHS6
-            PSID:             MT_2860111033
-            PCI Device Name:  /dev/mst/mt52100_pci_cr0
-            Base MAC:         98039bf3f500
-            Versions:         Current        Available     
-                FW         ***13.2000.1140***N/A           
-
-            Status:           No matching image found
-
-        By using regular expression '(Versions:.*\n[\s]+FW[\s]+)([\S]+)',
-        we can extrace the version which is marked with *** in the above context
-        """
-        fw_ver_str = self._get_command_result(FW_QUERY_VERSION_COMMAND)
-        try: 
-            m = re.search('(Versions:.*\n[\s]+FW[\s]+)([\S]+)', fw_ver_str)
-            result = m.group(2)
-        except :
-            result = ''
-
-        return result
-
-    def _get_bios_version(self):
-        """
-        BIOS version is retrieved via command 'dmidecode -t 11'
-        which should return result in the following convention
-            # dmidecode 3.0
-            Getting SMBIOS data from sysfs.
-            SMBIOS 2.7 present.
-
-            Handle 0x0022, DMI type 11, 5 bytes
-            OEM Strings
-                    String 1:*0ABZS017_02.02.002*
-                    String 2: To Be Filled By O.E.M.
-
-        By using regular expression 'OEM[\s]*Strings\n[\s]*String[\s]*1:[\s]*([0-9a-zA-Z_\.]*)'
-        we can extrace the version string which is marked with * in the above context
-        """
-        bios_ver_str = self._get_command_result(BIOS_QUERY_VERSION_COMMAND)
-        try:
-            m = re.search('OEM[\s]*Strings\n[\s]*String[\s]*1:[\s]*([0-9a-zA-Z_\.]*)', bios_ver_str)
-            result = m.group(1)
-        except:
-            result = ''
-
-        return result
-
-    def get_firmware_version(self, component_name):
-        """
-        Retrieves platform-specific hardware/firmware versions for chassis
-        componenets such as BIOS, CPLD, FPGA, etc.
-        Args:
-            component_name: A string, the component name.
-
-        Returns:
-            A string containing platform-specific component versions
-        """
-        if component_name in self._component_name_list :
-            if component_name == COMPONENT_BIOS:
-                return self._get_bios_version()
-            elif component_name == COMPONENT_CPLD1:
-                return self._get_cpld_version(CPLD1_VERSION_FILE)
-            elif component_name == COMPONENT_CPLD2:
-                return self._get_cpld_version(CPLD2_VERSION_FILE)
-            elif component_name == COMPONENT_FIRMWARE:
-                return self._get_firmware_version()
-
-        return None
 
     def _show_capabilities(self):
         """
