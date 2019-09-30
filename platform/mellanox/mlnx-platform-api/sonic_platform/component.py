@@ -35,6 +35,7 @@ class Component(ComponentBase):
         """
         return self.name
 
+
     def _read_generic_file(self, filename, len):
         """
         Read a generic file, returns the contents of the file
@@ -49,6 +50,7 @@ class Component(ComponentBase):
             logger.log_info("Fail to read file {} due to {}".format(filename, repr(e)))
             return '0'
 
+
     def _get_command_result(self, cmdline):
         try:
             proc = subprocess.Popen(cmdline, stdout=subprocess.PIPE, shell=True, stderr=subprocess.STDOUT)
@@ -61,9 +63,11 @@ class Component(ComponentBase):
 
         return result
 
+
 class ComponentBIOS(Component):
     def __init__(self):
         self.name = COMPONENT_BIOS
+
 
     def get_description(self):
         """
@@ -73,6 +77,7 @@ class ComponentBIOS(Component):
             A string containing the description of the component
         """
         raise NotImplementedError
+
 
     def get_firmware_version(self):
         """
@@ -104,9 +109,11 @@ class ComponentBIOS(Component):
 
         return result
 
+
 class ComponentCPLD(Component):
     def __init__(self):
         self.name = COMPONENT_CPLD
+
 
     def get_description(self):
         """
@@ -116,6 +123,7 @@ class ComponentCPLD(Component):
             A string containing the description of the component
         """
         raise NotImplementedError
+
 
     def get_firmware_version(self):
         """
@@ -136,9 +144,11 @@ class ComponentCPLD(Component):
 
         return cpld_version
 
+
 class ComponentASIC_FW(Component):
     def __init__(self):
         self.name = COMPONENT_FIRMWARE
+
 
     def get_description(self):
         """
@@ -148,6 +158,7 @@ class ComponentASIC_FW(Component):
             A string containing the description of the component
         """
         raise NotImplementedError
+
 
     def get_firmware_version(self):
         """

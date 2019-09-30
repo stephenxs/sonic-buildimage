@@ -63,9 +63,11 @@ class Chassis(ChassisBase):
         self.reboot_cause_initialized = False
         logger.log_info("Chassis loaded successfully")
 
+
     def __del__(self):
         if self.sfp_event_initialized:
             self.sfp_event.deinitialize()
+
 
     def initialize_psu(self):
         from sonic_platform.psu import Psu
@@ -74,6 +76,7 @@ class Chassis(ChassisBase):
         for index in range(MLNX_NUM_PSU):
             psu = Psu(index, self.sku_name)
             self._psu_list.append(psu)
+
 
     def initialize_fan(self):
         from sonic_platform.fan import Fan
@@ -91,6 +94,7 @@ class Chassis(ChassisBase):
             else:
                 fan = Fan(index, index)
             self._fan_list.append(fan)
+
 
     def initialize_sfp(self):
         from sonic_platform.sfp import SFP
@@ -113,15 +117,18 @@ class Chassis(ChassisBase):
 
         self.sfp_module_initialized = True
 
+
     def initialize_thermals(self):
         from sonic_platform.thermal import initialize_thermals
         # Initialize thermals
         initialize_thermals(self.sku_name, self._thermal_list, self._psu_list)
 
+
     def initialize_eeprom(self):
         from eeprom import Eeprom
         # Initialize EEPROM
         self._eeprom = Eeprom()
+
 
     def initialize_components_list(self):
         # Initialize component list
@@ -129,6 +136,7 @@ class Chassis(ChassisBase):
         self._component_list.append(ComponentBIOS())
         self._component_list.append(ComponentCPLD())
         self._component_list.append(ComponentASIC_FW())
+
 
     ##############################################
     # SFP methods
@@ -144,6 +152,7 @@ class Chassis(ChassisBase):
             self.initialize_sfp()
         return len(self._sfp_list)
 
+
     def get_all_sfps(self):
         """
         Retrieves all sfps available on this chassis
@@ -155,6 +164,7 @@ class Chassis(ChassisBase):
         if not self.sfp_module_initialized:
             self.initialize_sfp()
         return self._sfp_list
+
 
     def get_sfp(self, index):
         """
@@ -182,6 +192,7 @@ class Chassis(ChassisBase):
 
         return sfp
 
+
     def _extract_num_of_fans_and_fan_drawers(self):
         num_of_fan = 0
         num_of_drawer = 0
@@ -198,14 +209,17 @@ class Chassis(ChassisBase):
 
         return num_of_fan, num_of_drawer
 
+
     def _get_sku_name(self):
         p = subprocess.Popen(GET_HWSKU_CMD, shell=True, stdout=subprocess.PIPE)
         out, err = p.communicate()
         return out.rstrip('\n')
 
+
     def _get_port_position_tuple_by_sku_name(self):
         position_tuple = port_position_tuple_list[hwsku_dict_port[self.sku_name]]
         return position_tuple
+
 
     def get_watchdog(self):
         """
@@ -231,6 +245,7 @@ class Chassis(ChassisBase):
 
         return self._watchdog
 
+
     def get_base_mac(self):
         """
         Retrieves the base MAC address for the chassis
@@ -241,6 +256,7 @@ class Chassis(ChassisBase):
         """
         return self._eeprom.get_base_mac()
 
+
     def get_serial_number(self):
         """
         Retrieves the hardware serial number for the chassis
@@ -249,6 +265,7 @@ class Chassis(ChassisBase):
             A string containing the hardware serial number for this chassis.
         """
         return self._eeprom.get_serial_number()
+
 
     def get_system_eeprom_info(self):
         """
@@ -260,6 +277,7 @@ class Chassis(ChassisBase):
             values.
         """
         return self._eeprom.get_system_eeprom_info()
+
 
     def _read_generic_file(self, filename, len):
         """
@@ -275,6 +293,7 @@ class Chassis(ChassisBase):
             logger.log_info("Fail to read file {} due to {}".format(filename, repr(e)))
             return '0'
 
+
     def _verify_reboot_cause(self, filename):
         '''
         Open and read the reboot cause file in 
@@ -282,6 +301,7 @@ class Chassis(ChassisBase):
         If a reboot cause file doesn't exists, returns '0'.
         '''
         return bool(int(self._read_generic_file(join(REBOOT_CAUSE_ROOT, filename), REBOOT_CAUSE_FILE_LENGTH).rstrip('\n')))
+
 
     def initialize_reboot_cause(self):
         self.reboot_major_cause_dict = {
@@ -308,6 +328,7 @@ class Chassis(ChassisBase):
         }
         self.reboot_cause_initialized = True
 
+
     def get_reboot_cause(self):
         """
         Retrieves the cause of the previous reboot
@@ -333,6 +354,7 @@ class Chassis(ChassisBase):
 
         return self.REBOOT_CAUSE_NON_HARDWARE, ''
 
+
     def _show_capabilities(self):
         """
         This function is for debug purpose
@@ -353,6 +375,7 @@ class Chassis(ChassisBase):
                     )
             except:
                 print "fail to retrieve capabilities for module index {}".format(s.index)
+
 
     def get_change_event(self, timeout=0):
         """
