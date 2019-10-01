@@ -74,7 +74,7 @@ class ComponentBIOS(Component):
         Returns:
             A string containing the description of the component
         """
-        raise NotImplementedError
+        return "BIOS - Basic Input/Output System"
 
 
     def get_firmware_version(self):
@@ -120,7 +120,7 @@ class ComponentCPLD(Component):
         Returns:
             A string containing the description of the component
         """
-        raise NotImplementedError
+        return "CPLD - includes all CPLDs in the switch"
 
 
     def get_firmware_version(self):
