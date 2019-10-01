@@ -18,7 +18,7 @@ class Platform(PlatformBase):
         PlatformBase.__init__(self)
         if self._is_host():
             self._chassis = Chassis()
-            self._chassis.initialize_components_list()
+            self._chassis.initialize_components()
         else:
             self._chassis = Chassis()
             self._chassis.initialize_psu()

@@ -130,7 +130,7 @@ class Chassis(ChassisBase):
         self._eeprom = Eeprom()
 
 
-    def initialize_components_list(self):
+    def initialize_components(self):
         # Initialize component list
         from sonic_platform.component import ComponentBIOS, ComponentCPLD, ComponentASIC_FW
         self._component_list.append(ComponentBIOS())

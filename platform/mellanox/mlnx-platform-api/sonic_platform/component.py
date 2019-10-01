@@ -22,7 +22,7 @@ COMPONENT_CPLD = "CPLD"
 
 FW_QUERY_VERSION_COMMAND = 'mlxfwmanager --query'
 BIOS_QUERY_VERSION_COMMAND = 'dmidecode -t 11'
-CPLD_VERSION_FILE_PATTERN = '/var/run/hw-management/system/cpld?_version'
+CPLD_VERSION_FILE_PATTERN = '/var/run/hw-management/system/cpld[0-9]_version'
 CPLD_VERSION_MAX_LENGTH = 4
 
 class Component(ComponentBase):
