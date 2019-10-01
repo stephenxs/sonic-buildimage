@@ -139,6 +139,8 @@ class ComponentCPLD(Component):
                 if not cpld_version == '':
                     cpld_version += '.'
                 cpld_version += version.rstrip('\n')
+        else:
+            raise RuntimeError("Failed to get CPLD version files by matching {}".format(CPLD_VERSION_FILE_PATTERN))
 
         return cpld_version
 
