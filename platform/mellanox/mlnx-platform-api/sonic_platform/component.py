@@ -40,9 +40,8 @@ class Component(ComponentBase):
         """
         result = ''
         try:
-            fileobj = io.open(filename)
-            result = fileobj.read(len)
-            fileobj.close()
+            with io.open(filename, 'r') as fileobj:
+                result = fileobj.read(len)
             return result
         except Exception as e:
             logger.log_info("Fail to read file {} due to {}".format(filename, repr(e)))
@@ -132,7 +131,7 @@ class ComponentCPLD(Component):
         """
         cpld_version_file_list = glob(CPLD_VERSION_FILE_PATTERN)
         cpld_version = ''
-        if cpld_version_file_list is not None and not cpld_version_file_list == []:
+        if cpld_version_file_list is not None and cpld_version_file_list:
             cpld_version_file_list.sort()
             for version_file in cpld_version_file_list:
                 version = self._read_generic_file(version_file, CPLD_VERSION_MAX_LENGTH)
