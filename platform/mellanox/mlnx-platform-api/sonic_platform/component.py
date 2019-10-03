@@ -43,9 +43,8 @@ class Component(ComponentBase):
             with io.open(filename, 'r') as fileobj:
                 result = fileobj.read(len)
             return result
-        except Exception as e:
-            logger.log_info("Fail to read file {} due to {}".format(filename, repr(e)))
-            return '0'
+        except IOError as e:
+            raise RuntimeError("Failed to read file {} due to {}".format(filename, repr(e)))
 
 
     def _get_command_result(self, cmdline):
@@ -55,13 +54,16 @@ class Component(ComponentBase):
             proc.wait()
             result = stdout.rstrip('\n')
 
-        except OSError, e:
-            result = ''
+        except OSError as e:
+            raise RuntimeError("Failed to execute command {} due to {}".format(cmdline, repr(e)))
 
         return result
 
 
 class ComponentBIOS(Component):
+    BIOS_VERSION_PARSE_PATTERN = 'OEM[\s]*Strings\n[\s]*String[\s]*1:[\s]*([0-9a-zA-Z_\.]*)'
+
+
     def __init__(self):
         self.name = COMPONENT_BIOS
 
@@ -99,10 +101,11 @@ class ComponentBIOS(Component):
         """
         bios_ver_str = self._get_command_result(BIOS_QUERY_VERSION_COMMAND)
         try:
-            m = re.search('OEM[\s]*Strings\n[\s]*String[\s]*1:[\s]*([0-9a-zA-Z_\.]*)', bios_ver_str)
+            m = re.search(self.BIOS_VERSION_PARSE_PATTERN, bios_ver_str)
             result = m.group(1)
-        except:
-            result = ''
+        except AttributeError as e:
+            raise RuntimeError("Failed to parse BIOS version by {} from {} due to {}".format(
+                               self.BIOS_VERSION_PARSE_PATTERN, bios_ver_str, repr(e)))
 
         return result
 
