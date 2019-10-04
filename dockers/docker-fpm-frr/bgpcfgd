@@ -71,46 +71,100 @@ class Daemon(object):
     SUPPORT_DATABASE_LIST = (swsscommon.APPL_DB, swsscommon.CONFIG_DB)
 
     def __init__(self):
-        self.appl_db = swsscommon.DBConnector(swsscommon.APPL_DB, swsscommon.DBConnector.DEFAULT_UNIXSOCKET, 0)
-        self.conf_db = swsscommon.DBConnector(swsscommon.CONFIG_DB, swsscommon.DBConnector.DEFAULT_UNIXSOCKET, 0)
-        self.selector = swsscommon.Select()
-        self.db_connectors = {}
-        self.callbacks = {}
-        self.subscribers = set()
+        self.config_db = ConfigDBConnector()
+        try:
+            self.config_db.connect()
+        except Exception as e:
+            syslog.syslog(syslog.LOG_ERR, '[bgp cfgd] Failed connecting to config DB with exception:' + str(e))
 
-    def get_db_connector(self, db):
-        if db not in Daemon.SUPPORT_DATABASE_LIST:
-            raise ValueError("database {} not Daemon support list {}.".format(db, SUPPORT_DATABASE_LIST))
-        # if this database connector has been initialized
-        if db not in self.db_connectors:
-            self.db_connectors[db] = swsscommon.DBConnector(db, swsscommon.DBConnector.DEFAULT_UNIXSOCKET, 0)
-        return self.db_connectors[db]
+        self.bgp_asn = self.config_db.get_entry('DEVICE_METADATA', 'localhost')['bgp_asn']
+        self.bgp_neighbor = self.config_db.get_table('BGP_NEIGHBOR')
 
-    def add_manager(self, db, table_name, callback):
-        if db not in self.callbacks:
-            self.callbacks[db] = {}
-        if table_name not in self.callbacks[db]:
-            self.callbacks[db][table_name] = []
-            conn = self.get_db_connector(db)
-            subscriber = swsscommon.SubscriberStateTable(conn, table_name)
-            self.subscribers.add(subscriber)
-            self.selector.addSelectable(subscriber)
-        self.callbacks[db][table_name].append(callback)
+    def __run_command(self, command):
+#        print command
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+        stdout = p.communicate()[0]
+        p.wait()
+        if p.returncode != 0:
+            syslog.syslog(syslog.LOG_ERR, '[bgp cfgd] command execution returned {}. Command: "{}", stdout: "{}"'.format(p.returncode, command, stdout))
+
+    def metadata_handler(self, key, data):
+        if key == 'localhost' and data.has_key('bgp_asn'):
+            if data['bgp_asn'] != self.bgp_asn:
+                syslog.syslog(syslog.LOG_INFO, '[bgp cfgd] ASN changed to {} from {}, restart BGP...'.format(data['bgp_asn'], self.bgp_asn))
+                self.__run_command("supervisorctl restart start.sh")
+                self.__run_command("service quagga restart")
+                self.bgp_asn = data['bgp_asn']
+
+    def bfd_handler(self, key, data):
+        syslog.syslog(syslog.LOG_INFO, '[bgp cfgd](bfd) value for {} changed to {}'.format(key, data))
+        #get frr bfd session key
+        key_params = key.split('|')
+        cmd = 'peer {}'.format(key_params[0])
+       	if key_params[1] != 'null':
+            cmd = cmd + ' local-address ' + key_params[1]
+        if key_params[2] != 'null':
+            cmd = cmd + ' interface ' + key_params[2]
+        if not data:
+            #BFD peer is deleted
+            command = "vtysh -c 'configure terminal' -c 'bfd' -c 'no {}'".format(cmd)
+            self.__run_command(command)
+        else:
+            #create/update case
+            command = "vtysh -c 'configure terminal' -c 'bfd' -c '{}'".format(cmd)
+            for param in data:
+                if param == 'transmit_interval':
+                    command = command + " -c 'transmit-interval {}'".format(data[param])
+                elif param == 'receive_interval':
+                    command = command + " -c 'receive-interval {}'".format(data[param])
+                elif param == 'multiplier':
+                    command = command + " -c 'detect-multiplier {}'".format(data[param])
+                elif param == 'echo_mode' and data[param] == 'true':
+                    command = command + " -c 'echo-mode'"
+                elif param == 'echo_interval':
+                    command = command + " -c 'echo-interval {}'".format(data[param])
+                elif param == 'label':
+                    command = command + " -c 'label {}'".format(data[param])
+                elif param == 'admin_status' and data[param] == 'up':
+                    command = command + " -c 'no shutdown'"
+                elif param == 'admin_status' and data[param] == 'down':
+                    command = command + " -c 'shutdown'"
+            self.__run_command(command)    
+    
+    def bgp_handler(self, key, data):
+        syslog.syslog(syslog.LOG_INFO, '[bgp cfgd] value for {} changed to {}'.format(key, data))
+        if not data:
+            # Neighbor is deleted
+            command = "vtysh -c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {}'".format(self.bgp_asn, key)
+            self.__run_command(command)
+            self.bgp_neighbor.pop(key)
+        else:
+            command = "vtysh -c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} remote-as {}'".format(self.bgp_asn, key, data['asn'])
+            self.__run_command(command)
+            if data.has_key('name'):
+                command = "vtysh -c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} description {}'".format(self.bgp_asn, key, data['name'])
+                self.__run_command(command)
+            if data.has_key('admin_status'):
+                command_mod = 'no ' if data['admin_status'] == 'up' else ''
+                command = "vtysh -c 'configure terminal' -c 'router bgp {}' -c '{}neighbor {} shutdown'".format(self.bgp_asn, command_mod, key)
+                self.__run_command(command)
+            if data.has_key('bfd'):
+                command_mod = 'no ' if data['bfd'] == '0' else ''
+                command = "vtysh -c 'configure terminal' -c 'router bgp {}' -c '{}neighbor {} bfd'".format(self.bgp_asn, command_mod, key)
+                self.__run_command(command)
+            self.bgp_neighbor[key] = data
 
     def start(self):
-        while True:
-            state, selectable = self.selector.select(Daemon.SELECT_TIMEOUT)
-            if not selectable:
-                continue
-            for subscriber in self.subscribers:
-                key, op, fvs = subscriber.pop()
-                # if no new message
-                if not key:
-                    continue
-                data = dict(fvs)
-                syslog.syslog(syslog.LOG_DEBUG, "Receive message : {}".format((key, op, fvs)))
-                for callback in self.callbacks[subscriber.getDbConnector().getDbId()][subscriber.getTableName()]:
-                    callback(key, op, data)
+        try:
+            self.config_db.subscribe('BFD_PEER',
+                lambda table, key, data: self.bfd_handler(key, data))
+            self.config_db.subscribe('BGP_NEIGHBOR', 
+                lambda table, key, data: self.bgp_handler(key, data))
+            self.config_db.subscribe('DEVICE_METADATA',
+                lambda table, key, data: self.metadata_handler(key, data))
+            self.config_db.listen()
+        except Exception as e:
+            syslog.syslog(syslog.LOG_ERR, '[bgp cfgd] Failed subscribing/listening to config DB with exception:' + str(e))
 
 
 def main():

@@ -18,6 +18,7 @@ class TestJ2Files(TestCase):
         self.t1_mlnx_minigraph = os.path.join(self.test_dir, 't1-sample-graph-mlnx.xml')
         self.mlnx_port_config = os.path.join(self.test_dir, 'sample-port-config-mlnx.ini')
         self.dell6100_t0_minigraph = os.path.join(self.test_dir, 'sample-dell-6100-t0-minigraph.xml')
+        self.frrbfdjson = os.path.join(self.test_dir, 'frrbfd.json')
         self.output_file = os.path.join(self.test_dir, 'output')
 
     def run_script(self, argument):
@@ -104,6 +105,12 @@ class TestJ2Files(TestCase):
         argument = '-m ' + self.t0_minigraph + ' -p ' + self.t0_port_config + ' -t ' + conf_template + ' > ' + self.output_file
         self.run_script(argument)
         self.assertTrue(filecmp.cmp(os.path.join(self.test_dir, 'sample_output', 'staticd_frr.conf'), self.output_file))
+
+    def test_config_frrbfd(self):
+        conf_template = os.path.join(self.test_dir, '..', '..', '..', 'dockers', 'docker-fpm-frr', 'frr.conf.j2')
+        argument = '-j ' + self.frrbfdjson + ' -t ' + conf_template + ' > ' + self.output_file
+        self.run_script(argument)
+        self.assertTrue(filecmp.cmp(os.path.join(self.test_dir, 'sample_output', 'frrbfd.conf'), self.output_file))
 
     def test_ipinip(self):
         ipinip_file = os.path.join(self.test_dir, '..', '..', '..', 'dockers', 'docker-orchagent', 'ipinip.json.j2')

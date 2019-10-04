@@ -1,0 +1,20 @@
+{
+	"BFD_PEER": {
+		"2.2.2.2|null|null": {
+			"transmit_interval":"400", 
+			"receive_interval":"300", 
+			"echo_mode":"true", 
+			"echo_interval":"44", 
+			"multiplier":"5",
+			"label":"mylabel"
+		}, 
+		"3.3.3.3|1.1.1.1|null": {
+			"admin_status":"down"
+		},
+		"4.4.4.4|null|Ethernet0": {
+		},
+		"5.5.5.5|1.1.1.1|Ethernet0": {
+			"admin_status":"up"
+		}
+	}
+}
