@@ -1204,6 +1204,46 @@ class SFP(SfpBase):
         self._close_sdk()
         return rc == SXD_STATUS_SUCCESS
 
+    def _read_i2c_via_mcia(self, page, i2caddr, address, length):
+        result = []
+        if length > 48:
+            return result
+
+        handle = self._open_sdk()
+        if handle is None:
+            return result
+
+        mcia = ku_mcia_reg()
+
+        meta = self._init_sx_meta_data()
+        meta.access_cmd = SXD_ACCESS_CMD_GET
+
+        mcia.module = self.sdk_index
+        mcia.page_number = page
+        mcia.i2c_device_address = i2caddr
+        mcia.device_address = address
+        mcia.size = length
+        rc = sxd_access_reg_mcia(mcia, meta, REGISTER_NUM, None, None)
+        if rc != SXD_STATUS_SUCCESS:
+            logger.log_warning("sxd_access_reg_mcia getting failed, rc = %d" % rc)
+            self._close_sdk()
+            return result
+
+        self._close_sdk()
+
+        rawdata = [mcia.dword_0, mcia.dword_1, mcia.dword_2, mcia.dword_3, mcia.dword_4, mcia.dword_5,
+                  mcia.dword_6, mcia.dword_7, mcia.dword_8, mcia.dword_9, mcia.dword_10, mcia.dword_11]
+        if length % 4 == 0:
+            total_dwords = length / 4
+        else:
+            total_dwords = length / 4 + 1
+        result = []
+        for i in range(total_dwords):
+            temp = "%08x" % rawdata[i]
+            result[i*4:i*4+4] = [temp[0:2], temp[2:4], temp[4:6], temp[6:8]]
+
+        return result
+
     def tx_disable(self, tx_disable):
         """
         Disable SFP TX for all channels
