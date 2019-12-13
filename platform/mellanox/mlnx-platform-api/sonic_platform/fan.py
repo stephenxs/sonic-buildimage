@@ -145,11 +145,10 @@ class Fan(FanBase):
         Returns:
             int: percentage of the max fan speed
         """
-        speed = 0
-
         if self.is_psu_fan:
             # Not like system fan, psu fan speed can not be modified, so target speed is N/A 
-            return speed
+            return self.get_speed()
+
         try:
             with open(os.path.join(FAN_PATH, self.fan_speed_set_path), 'r') as fan_pwm:
                 pwm = int(fan_pwm.read())
