@@ -1,7 +1,7 @@
-From 6aecc8fed8cc78c1fb5c6b52bdfa3d07ca66e652 Mon Sep 17 00:00:00 2001
+From b25b265d8210abb542928066a32f19be5d0ef1ee Mon Sep 17 00:00:00 2001
 From: Mykola Faryma <mykolaf@mellanox.com>
 Date: Fri, 21 Feb 2020 12:28:54 +0200
-Subject: [PATCH 1/1] Make hw-mgmt SimX compatiable
+Subject: [PATCH 1/2] Make hw-mgmt SimX compatiable
 
 Signed-off-by: Mykola Faryma <mykolaf@mellanox.com>
 ---
