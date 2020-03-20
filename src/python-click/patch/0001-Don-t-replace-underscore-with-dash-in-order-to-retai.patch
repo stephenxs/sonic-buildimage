@@ -1,0 +1,83 @@
+From 24fe650a982e502d2ec4f169a8045493fbcd55cf Mon Sep 17 00:00:00 2001
+From: Stephen Sun <stephens@mellanox.com>
+Date: Fri, 20 Mar 2020 20:24:37 +0800
+Subject: [PATCH] Don't replace underscore with dash in order to retain
+ backword compatibility
+
+Signed-off-by: Stephen Sun <stephens@mellanox.com>
+---
+ click/decorators.py      | 2 +-
+ tests/test_commands.py   | 4 ++--
+ tests/test_formatting.py | 8 ++++----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/click/decorators.py b/click/decorators.py
+index c57c530..6ee331e 100644
+--- a/click/decorators.py
++++ b/click/decorators.py
+@@ -85,7 +85,7 @@ def _make_command(f, name, attrs, cls):
+         help = inspect.cleandoc(help)
+     attrs['help'] = help
+     _check_for_unicode_literals()
+-    return cls(name=name or f.__name__.lower().replace('_', '-'),
++    return cls(name=name or f.__name__.lower(),
+                callback=f, params=params, **attrs)
+ 
+ 
+diff --git a/tests/test_commands.py b/tests/test_commands.py
+index 9189eca..190854c 100644
+--- a/tests/test_commands.py
++++ b/tests/test_commands.py
+@@ -64,7 +64,7 @@ def test_auto_shorthelp(runner):
+         r'Commands:\n\s+'
+         r'long\s+This is a long text that is too long to show as short help\.\.\.\n\s+'
+         r'short\s+This is a short text\.\n\s+'
+-        r'special-chars\s+Login and store the token in ~/.netrc\.\s*',
++        r'special_chars\s+Login and store the token in ~/.netrc\.\s*',
+         result.output) is not None
+ 
+ 
+@@ -208,7 +208,7 @@ def test_other_command_invoke_with_defaults(runner):
+     @click.option('--foo', type=click.INT, default=42)
+     @click.pass_context
+     def other_cmd(ctx, foo):
+-        assert ctx.info_name == 'other-cmd'
++        assert ctx.info_name == 'other_cmd'
+         click.echo(foo)
+ 
+     result = runner.invoke(cli, [])
+diff --git a/tests/test_formatting.py b/tests/test_formatting.py
+index 2005f98..7894829 100644
+--- a/tests/test_formatting.py
++++ b/tests/test_formatting.py
+@@ -74,11 +74,11 @@ def test_wrapping_long_options_strings(runner):
+ 
+     # 54 is chosen as a length where the second line is one character
+     # longer than the maximum length.
+-    result = runner.invoke(cli, ['a-very-long', 'command', '--help'],
++    result = runner.invoke(cli, ['a_very_long', 'command', '--help'],
+                            terminal_width=54)
+     assert not result.exception
+     assert result.output.splitlines() == [
+-        'Usage: cli a-very-long command [OPTIONS] FIRST SECOND',
++        'Usage: cli a_very_long command [OPTIONS] FIRST SECOND',
+         '                               THIRD FOURTH FIFTH',
+         '                               SIXTH',
+         '',
+@@ -111,11 +111,11 @@ def test_wrapping_long_command_name(runner):
+         """A command.
+         """
+ 
+-    result = runner.invoke(cli, ['a-very-very-very-long', 'command', '--help'],
++    result = runner.invoke(cli, ['a_very_very_very_long', 'command', '--help'],
+                            terminal_width=54)
+     assert not result.exception
+     assert result.output.splitlines() == [
+-        'Usage: cli a-very-very-very-long command ',
++        'Usage: cli a_very_very_very_long command ',
+         '           [OPTIONS] FIRST SECOND THIRD FOURTH FIFTH',
+         '           SIXTH',
+         '',
+-- 
+2.20.1
+

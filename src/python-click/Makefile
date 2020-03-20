@@ -18,6 +18,9 @@ $(addprefix $(DEST)/, $(MAIN_TARGET)): $(DEST)/% :
 	# which stg doesn't like, so we use this method instead
 	git reset --hard debian/$(PYTHON_CLICK_VERSION)
 
+	stg init
+	stg import -s ../patch/series
+
 	# Build source and Debian packages
 	dpkg-buildpackage -rfakeroot -b -us -uc -j$(SONIC_CONFIG_MAKE_JOBS)
 	popd
