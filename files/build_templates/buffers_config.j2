@@ -134,6 +134,9 @@ def
 {% for port in PORT_ACTIVE %}
         "{{ port }}|0": {
             "profile" : "[BUFFER_PROFILE|ingress_lossy_profile]"
+        },
+        "{{ port }}|3-4": {
+            "NULL" : "NULL"
         }{% if not loop.last %},{% endif %}
 
 {% endfor %}
@@ -162,4 +165,16 @@ def
 {% endfor %}
     }
 {% endif %}
+,
+    "DEFAULT_LOSSLESS_BUFFER_PARAMETER": {
+        "AZURE": {
+            "default_dynamic_th": "0"
+        }
+    },
+    "LOSSLESS_TRAFFIC_PATTERN": {
+        "AZURE": {
+            "mtu": "1500",
+            "small_packet_percentage": "100"
+        }
+    }
 }

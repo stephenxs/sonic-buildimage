@@ -1,0 +1,28 @@
+{%- if DEVICE_METADATA is defined and DEVICE_METADATA['localhost']['platform'] is defined %}
+{%-     set platform = DEVICE_METADATA['localhost']['platform'] %}
+{%- else -%}
+{%-     set platform = "vs-platform" %}
+{%- endif -%}
+
+{% set platform2gearbox = {
+        'x86_64-mlnx_msn3800-r0':'MELLANOX-GEARBOX-1',
+        'vs-platform':'VS-GEARBOX'
+    }
+%}
+{% set gearbox_type = platform2gearbox[platform] %}
+{% if gearbox_type == 'MELLANOX-GEARBOX-1' %}
+{
+    "PERIPHERAL_TABLE:MELLANOX-GEARBOX-1": {
+            "gearbox_delay": "400"
+    },
+    "OP": "SET"
+}
+{% elif gearbox_type == 'VS-GEARBOX' %}
+{
+    "PERIPHERAL_TABLE:VS-GEARBOX": {
+            "gearbox_delay": "400"
+    },
+    "OP": "SET"
+}
+{% endif %}
+
