@@ -10,4 +10,8 @@ else
     BUFFERMGRD_ARGS="-l /usr/share/sonic/hwsku/pg_profile_lookup.ini"
 fi
 
-exec /usr/bin/buffermgrd ${BUFFERMGRD_ARGS}
+if [ -f /etc/sonic/zero_profiles.json ]; then
+    BUFFERMGRD_ZERO_PROFILE_ARGS=" -z /etc/sonic/zero_profiles.json"
+fi
+
+exec /usr/bin/buffermgrd ${BUFFERMGRD_ARGS} ${BUFFERMGRD_ZERO_PROFILE_ARGS}
