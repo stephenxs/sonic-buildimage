@@ -26,6 +26,10 @@ PSU_CURRENT = "current"
 PSU_VOLTAGE = "voltage"
 PSU_POWER = "power"
 PSU_VPD = "vpd"
+PSU_VOLTAGE_CAPABILITY = "voltage_capability"
+PSU_VOLTAGE_MIN = "voltage_min"
+PSU_VOLTAGE_MAX = "voltage_max"
+PSU_POWER_MAX = "power_max"
 
 SN_VPD_FIELD = "SN_VPD_FIELD"
 PN_VPD_FIELD = "PN_VPD_FIELD"
@@ -45,21 +49,33 @@ psu_profile_list = [
         PSU_CURRENT : "power/psu{}_curr",
         PSU_VOLTAGE : "power/psu{}_volt",
         PSU_POWER : "power/psu{}_power",
-        PSU_VPD : "eeprom/psu{}_vpd"
+        PSU_VPD : "eeprom/psu{}_vpd",
+        PSU_VOLTAGE_CAPABILITY : "power/psu{}_volt_capability",
+        PSU_VOLTAGE_MIN : "power/psu{}_volt_min",
+        PSU_VOLTAGE_MAX : "power/psu{}_volt_max",
+        PSU_POWER_MAX : "power/psu{}_power_max"
     },
     # for 3420, 3700, 3700c, 3800, 4600c, 4700
     {
         PSU_CURRENT : "power/psu{}_curr",
         PSU_VOLTAGE : "power/psu{}_volt_out2",
         PSU_POWER : "power/psu{}_power",
-        PSU_VPD : "eeprom/psu{}_vpd"
+        PSU_VPD : "eeprom/psu{}_vpd",
+        PSU_VOLTAGE_CAPABILITY : "power/psu{}_volt_out2_capability",
+        PSU_VOLTAGE_MIN : "power/psu{}_volt_out2_min",
+        PSU_VOLTAGE_MAX : "power/psu{}_volt_out2_max",
+        PSU_POWER_MAX : "power/psu{}_power_max"
     },
     # for fixed platforms 2100, 2010
     {
         PSU_CURRENT : "power/psu{}_curr",
         PSU_VOLTAGE : "power/psu{}_volt_out2",
         PSU_POWER : "power/psu{}_power",
-        PSU_VPD : None
+        PSU_VPD : None,
+        PSU_VOLTAGE_CAPABILITY : "power/psu{}_volt_out2_capability",
+        PSU_VOLTAGE_MIN : "power/psu{}_volt_min",
+        PSU_VOLTAGE_MAX : "power/psu{}_volt_max",
+        PSU_POWER_MAX : "power/psu{}_power_max"
     }
 ]
 
@@ -117,8 +133,12 @@ class Psu(PsuBase):
         if not self.psu_data['hot_swappable']:
             self.always_present = True
             self.psu_voltage = None
+            self.psu_voltage_capability = None
+            self.psu_voltage_min = None
+            self.psu_voltage_max = None
             self.psu_current = None
             self.psu_power = None
+            self.psu_power_max = None
             self.psu_presence = None
             self.psu_temp = None
             self.psu_temp_threshold = None
@@ -128,6 +148,18 @@ class Psu(PsuBase):
             psu_voltage = os.path.join(self.psu_path, psu_voltage)
             self.psu_voltage = psu_voltage
 
+            psu_voltage_capability = filemap[PSU_VOLTAGE_CAPABILITY].format(self.index)
+            psu_voltage_capability = os.path.join(self.psu_path, psu_voltage_capability)
+            self.psu_voltage_capability = psu_voltage_capability
+
+            psu_voltage_min = filemap[PSU_VOLTAGE_MIN].format(self.index)
+            psu_voltage_min = os.path.join(self.psu_path, psu_voltage_min)
+            self.psu_voltage_min = psu_voltage_min
+
+            psu_voltage_max = filemap[PSU_VOLTAGE_MAX].format(self.index)
+            psu_voltage_max = os.path.join(self.psu_path, psu_voltage_max)
+            self.psu_voltage_max = psu_voltage_max
+
             psu_current = filemap[PSU_CURRENT].format(self.index)
             psu_current = os.path.join(self.psu_path, psu_current)
             self.psu_current = psu_current
@@ -135,6 +167,10 @@ class Psu(PsuBase):
             psu_power = filemap[PSU_POWER].format(self.index)
             psu_power = os.path.join(self.psu_path, psu_power)
             self.psu_power = psu_power
+
+            psu_power_max = filemap[PSU_POWER_MAX].format(self.index)
+            psu_power_max = os.path.join(self.psu_path, psu_power_max)
+            self.psu_power_max = psu_power_max
 
             psu_presence = "thermal/psu{}_status".format(self.index)
             psu_presence = os.path.join(self.psu_path, psu_presence)
@@ -162,6 +198,21 @@ class Psu(PsuBase):
         return self._name
 
 
+    def _read_generic_file(self, filename):
+        """
+        Read a generic file, returns the contents of the file
+        """
+        result = ""
+        try:
+            if not os.path.exists(filename):
+                return result
+            with open(filename, 'r') as fileobj:
+                result = fileobj.read()
+        except Exception as e:
+            logger.log_info("Fail to read file {} due to {}".format(filename, repr(e)))
+        return result
+
+
     def _read_vpd_file(self, filename):
         """
         Read a vpd file parsed from eeprom with keys and values.
@@ -180,7 +231,7 @@ class Psu(PsuBase):
         return result
 
 
-    def _read_generic_file(self, filename, len):
+    def _read_numeric_file(self, filename, len):
         """
         Read a generic file, returns the contents of the file
         """
@@ -232,7 +283,7 @@ class Psu(PsuBase):
         Returns:
             bool: True if PSU is operating properly, False if not
         """
-        status = self._read_generic_file(os.path.join(self.psu_path, self.psu_oper_status), 0)
+        status = self._read_numeric_file(os.path.join(self.psu_path, self.psu_oper_status), 0)
 
         return status == 1
 
@@ -247,7 +298,7 @@ class Psu(PsuBase):
         if self.always_present:
             return self.always_present
         else:
-            status = self._read_generic_file(self.psu_presence, 0)
+            status = self._read_numeric_file(self.psu_presence, 0)
             return status == 1
 
 
@@ -260,7 +311,7 @@ class Psu(PsuBase):
             e.g. 12.1 
         """
         if self.psu_voltage is not None and self.get_powergood_status():
-            voltage = self._read_generic_file(self.psu_voltage, 0)
+            voltage = self._read_numeric_file(self.psu_voltage, 0)
             return float(voltage) / 1000
         else:
             return None
@@ -274,7 +325,7 @@ class Psu(PsuBase):
             A float number, the electric current in amperes, e.g 15.4
         """
         if self.psu_current is not None and self.get_powergood_status():
-            amperes = self._read_generic_file(self.psu_current, 0)
+            amperes = self._read_numeric_file(self.psu_current, 0)
             return float(amperes) / 1000
         else:
             return None
@@ -287,7 +338,7 @@ class Psu(PsuBase):
             A float number, the power in watts, e.g. 302.6
         """
         if self.psu_power is not None and self.get_powergood_status():
-            power = self._read_generic_file(self.psu_power, 0)
+            power = self._read_numeric_file(self.psu_power, 0)
             return float(power) / 1000000
         else:
             return None
@@ -370,7 +421,7 @@ class Psu(PsuBase):
         """
         if self.psu_temp is not None and self.get_powergood_status():
             try:
-                temp = self._read_generic_file(self.psu_temp, 0)
+                temp = self._read_numeric_file(self.psu_temp, 0)
                 return float(temp) / 1000
             except Exception as e:
                 logger.log_info("Fail to get temperature for PSU {} due to - {}".format(self._name, repr(e)))
@@ -387,7 +438,7 @@ class Psu(PsuBase):
         """
         if self.psu_temp_threshold is not None and self.get_powergood_status():
             try:
-                temp_threshold = self._read_generic_file(self.psu_temp_threshold, 0)
+                temp_threshold = self._read_numeric_file(self.psu_temp_threshold, 0)
                 return float(temp_threshold) / 1000
             except Exception as e:
                 logger.log_info("Fail to get temperature threshold for PSU {} due to - {}".format(self._name, repr(e)))
@@ -400,10 +451,19 @@ class Psu(PsuBase):
 
         Returns:
             A float number, the high threshold output voltage in volts, 
-            e.g. 12.1 
+            e.g. 12.1
+
+        Notes:
+            The thresholds of voltage are not supported on all platforms.
+            So we have to check capability first.
         """
-        # hw-management doesn't expose those sysfs for now
-        raise NotImplementedError
+        if self.psu_voltage_capability and self.psu_voltage_max and self.get_powergood_status():
+            capability = self._read_generic_file(self.psu_voltage_capability)
+            if 'max' in capability:
+                max_voltage = self._read_numeric_file(self.psu_voltage_max, 0)
+                return float(max_voltage) / 1000
+
+        return None
 
     def get_voltage_low_threshold(self):
         """
@@ -411,7 +471,30 @@ class Psu(PsuBase):
 
         Returns:
             A float number, the low threshold output voltage in volts, 
-            e.g. 12.1 
+            e.g. 12.1
+
+        Notes:
+            The thresholds of voltage are not supported on all platforms.
+            So we have to check capability first.
         """
-        # hw-management doesn't expose those sysfs for now
-        raise NotImplementedError
+        if self.psu_voltage_capability and self.psu_voltage_min and self.get_powergood_status():
+            capability = self._read_generic_file(self.psu_voltage_capability)
+            if 'min' in capability:
+                min_voltage = self._read_numeric_file(self.psu_voltage_min, 0)
+                return float(min_voltage) / 1000
+
+        return None
+
+    def get_maximum_supplied_power(self):
+        """
+        Retrieves the maximum supplied power by PSU
+
+        Returns:
+            A float number, the maximum power output in Watts.
+            e.g. 1200.1
+        """
+        if self.psu_power_max and self.get_powergood_status():
+            power_max = self._read_numeric_file(self.psu_power_max, 0)
+            return float(power_max) / 1000000
+        else:
+            return None
