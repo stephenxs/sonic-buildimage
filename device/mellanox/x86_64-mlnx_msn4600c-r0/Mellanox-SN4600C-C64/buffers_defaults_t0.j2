@@ -30,10 +30,10 @@
 {{ defs.generate_profile_lists(port_names_active, port_names_inactive) }}
 {%- endmacro %}
 
-{%- macro generate_queue_buffers_with_inactive_ports(port_names_active, port_names_inactive) %}
-{{ defs.generate_queue_buffers(port_names_active, port_names_inactive) }}
+{%- macro generate_queue_buffers_with_extra_lossless_queues_with_inactive_ports(port_names_active, port_names_extra_queues, port_names_inactive) %}
+{{ defs.generate_queue_buffers_with_extra_lossless_queues(port_names_active, port_names_extra_queues, port_names_inactive) }}
 {%- endmacro %}
 
-{%- macro generate_pg_profiles_with_inactive_ports(port_names_active, port_names_inactive) %}
-{{ defs.generate_pg_profiles(port_names_active, port_names_inactive) }}
+{%- macro generate_pg_profiles_with_extra_lossless_pgs_with_inactive_ports(port_names_active, port_names_extra_pgs, port_names_inactive) %}
+{{ defs.generate_pg_profiles_with_extra_lossless_pgs(port_names_active, port_names_extra_pgs, port_names_inactive) }}
 {%- endmacro %}

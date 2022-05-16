@@ -14,7 +14,10 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 #}
-{% if ('type' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['type'] == 'LeafRouter') %}
+
+{% if (('type' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['type'] == 'LeafRouter') or
+       ('type' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['type'] == 'ToRRouter') and
+       ('subtype' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['subtype'] == 'DualToR')) %}
 {% set different_dscp_to_tc_map = true %}
 {%- macro generate_dscp_to_tc_map() %}
     "DSCP_TO_TC_MAP": {
