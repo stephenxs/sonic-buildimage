@@ -235,6 +235,13 @@ class Psu(FixedPsu):
         self.psu_power_max = self.psu_power + "_max"
         self.psu_presence = os.path.join(PSU_PATH, "thermal/psu{}_status".format(self.index))
 
+        self.psu_power_max_capacity = os.path.join(PSU_PATH, "config/psu{}_power_capacity".format(self.index))
+        self.port_ambient_temp = os.path.join(PSU_PATH, "thermal/port_amb")
+        self.fan_ambient_temp = os.path.join(PSU_PATH, "thermal/fan_amb")
+        self.ambient_temp_critical_threshold = os.path.join(PSU_PATH, "config/amb_tmp_crit_limit")
+        self.ambient_temp_warning_threshold = os.path.join(PSU_PATH, "config/amb_tmp_warn_limit")
+        self.psu_power_slop = os.path.join(PSU_PATH, "config/psu_power_slop")
+
         self.psu_temp = os.path.join(PSU_PATH, 'thermal/psu{}_temp'.format(self.index))
         self.psu_temp_threshold = os.path.join(PSU_PATH, 'thermal/psu{}_temp_max'.format(self.index))
 
@@ -504,6 +511,44 @@ class Psu(FixedPsu):
             amperes = utils.read_int_from_file(self.psu_current_in, log_func=logger.log_info)
             return float(amperes) / 1000
         return None
+
+    def _get_psu_power_threshold(self, temp_threshold_path):
+        if self.get_powergood_status():
+            if os.path.exists(self.psu_power_max_capacity):
+                power_max_capacity = utils.read_int_from_file(self.psu_power_max_capacity)
+                temp_threshold = utils.read_int_from_file(temp_threshold_path)
+                fan_ambient_temp = utils.read_int_from_file(self.fan_ambient_temp)
+                port_ambient_temp = utils.read_int_from_file(self.port_ambient_temp)
+                ambient_temp = min(fan_ambient_temp, port_ambient_temp)
+                if ambient_temp < temp_threshold:
+                    power_threshold = power_max_capacity
+                else:
+                    slope = utils.read_int_from_file(self.psu_power_slop)
+                    power_threshold = power_max_capacity - (ambient_temp - temp_threshold) * slope
+                return float(power_threshold) / 1000000
+
+        return None
+
+    def get_psu_power_threshold(self):
+        """
+        Retrieve the warning threshold of the power on this PSU
+        The value can be volatile, so the caller should call the API each time it is used.
+
+        Returns:
+            A float number, the warning threshold of the PSU in watts.
+        """
+        return self._get_psu_power_threshold(self.ambient_temp_warning_threshold)
+
+    def get_psu_power_critical_threshold(self):
+        """
+        Retrieve the critical threshold of the power on this PSU
+        The value can be volatile, so the caller should call the API each time it is used.
+
+        Returns:
+            A float number, the critical threshold of the PSU in watts.
+        """
+        return self._get_psu_power_threshold(self.ambient_temp_critical_threshold)
+
 
 class InvalidPsuVolWA:
     """This class is created as a workaround for a known hardware issue that the PSU voltage threshold could be a 
