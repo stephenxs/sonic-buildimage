@@ -170,7 +170,7 @@ class TestPsu:
             psu.psu_power_max_capacity: 100000000,
             psu.ambient_temp_critical_threshold: 65000,
             psu.ambient_temp_warning_threshold: 55000,
-            psu.psu_power_slop: 2000
+            psu.psu_power_slope: 2000
             }
         normal_data = {
             psu.port_ambient_temp: 55000,

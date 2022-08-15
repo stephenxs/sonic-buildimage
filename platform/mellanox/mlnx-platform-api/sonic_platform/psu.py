@@ -240,7 +240,7 @@ class Psu(FixedPsu):
         self.fan_ambient_temp = os.path.join(PSU_PATH, "thermal/fan_amb")
         self.ambient_temp_critical_threshold = os.path.join(PSU_PATH, "config/amb_tmp_crit_limit")
         self.ambient_temp_warning_threshold = os.path.join(PSU_PATH, "config/amb_tmp_warn_limit")
-        self.psu_power_slop = os.path.join(PSU_PATH, "config/psu_power_slop")
+        self.psu_power_slope = os.path.join(PSU_PATH, "config/psu_power_slope")
 
         self.psu_temp = os.path.join(PSU_PATH, 'thermal/psu{}_temp'.format(self.index))
         self.psu_temp_threshold = os.path.join(PSU_PATH, 'thermal/psu{}_temp_max'.format(self.index))
@@ -523,7 +523,7 @@ class Psu(FixedPsu):
                 if ambient_temp < temp_threshold:
                     power_threshold = power_max_capacity
                 else:
-                    slope = utils.read_int_from_file(self.psu_power_slop)
+                    slope = utils.read_int_from_file(self.psu_power_slope)
                     power_threshold = power_max_capacity - (ambient_temp - temp_threshold) * slope
                 return float(power_threshold) / 1000000
 
