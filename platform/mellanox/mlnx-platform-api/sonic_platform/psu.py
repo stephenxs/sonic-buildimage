@@ -532,6 +532,9 @@ class Psu(FixedPsu):
                 else:
                     slope = utils.read_int_from_file(self.psu_power_slope)
                     power_threshold = power_max_capacity - (ambient_temp - temp_threshold) * slope
+                if power_threshold <= 0:
+                    logger.log_warning('Got negative PSU power threshold {} for {}'.format(power_threshold, self.get_name()))
+                    power_threshold = 0
                 return float(power_threshold) / 1000000
 
         return None
