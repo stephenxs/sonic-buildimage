@@ -164,6 +164,7 @@ class TestPsu:
 
     @mock.patch('os.path.exists', mock.MagicMock(return_value=True))
     def test_psu_power_threshold(self):
+        Psu.all_psus_support_power_threshold = True
         psu = Psu(0)
         common_info = {
             psu.psu_oper_status: 1,
@@ -212,6 +213,6 @@ class TestPsu:
 
     def test_psu_not_support_power_threshold(self):
         psu = Psu(0)
-        assert not psu.psu_may_support_power_threshold
+        assert not Psu.all_psus_support_power_threshold
         assert psu.get_psu_power_threshold() is None
         assert psu.get_psu_power_critical_threshold() is None

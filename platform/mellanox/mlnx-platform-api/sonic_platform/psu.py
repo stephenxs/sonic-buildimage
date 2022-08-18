@@ -219,7 +219,7 @@ class Psu(FixedPsu):
 
     shared_led = None
 
-    psu_may_support_power_threshold = True
+    all_psus_support_power_threshold = True
 
     def __init__(self, psu_index):
         super(Psu, self).__init__(psu_index)
@@ -258,8 +258,8 @@ class Psu(FixedPsu):
 
         # This effectively forms a logical AND operation on all PSUs existing on the system
         # It will be true only if the file exists for all PSUs
-        if Psu.psu_may_support_power_threshold:
-            Psu.psu_may_support_power_threshold = os.path.exists(self.psu_power_max_capacity)
+        if Psu.all_psus_support_power_threshold:
+            Psu.all_psus_support_power_threshold = os.path.exists(self.psu_power_max_capacity)
 
     @property
     def psu_voltage(self):
@@ -521,7 +521,7 @@ class Psu(FixedPsu):
 
     def _get_psu_power_threshold(self, temp_threshold_path):
         if self.get_powergood_status():
-            if Psu.psu_may_support_power_threshold:
+            if Psu.all_psus_support_power_threshold:
                 power_max_capacity = utils.read_int_from_file(self.psu_power_max_capacity)
                 temp_threshold = utils.read_int_from_file(temp_threshold_path)
                 fan_ambient_temp = utils.read_int_from_file(self.fan_ambient_temp)
