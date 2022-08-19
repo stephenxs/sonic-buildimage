@@ -199,7 +199,7 @@ class TestPsu:
             else:
                 return test_data[value]
 
-        utils.read_int_from_file = mock.MagicMock(side_effect=mock_side_effect)
+        mock_read_int_from_file.side_effect = mock_side_effect
         test_data = normal_data
         assert psu.get_psu_power_threshold() == normal_data['warning_threshold']
         assert psu.get_psu_power_critical_threshold() == normal_data['critical_threshold']
