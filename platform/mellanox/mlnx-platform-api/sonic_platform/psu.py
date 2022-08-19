@@ -520,6 +520,14 @@ class Psu(FixedPsu):
         return None
 
     def _get_psu_power_threshold(self, temp_threshold_path):
+        """
+        Calculate power threshold for a PSU according to the maximum power capacity and ambient temperature
+            amb_temp = min(port_amb, fan_amb)
+            If amb_temp < ambient_temp_threshold
+                threshold = max capacity
+            else
+                threshold = max capacity - slope*(amb_temp - ambient_temp_threshold)
+        """
         if self.get_powergood_status():
             if Psu.all_psus_support_power_threshold:
                 power_max_capacity = utils.read_int_from_file(self.psu_power_max_capacity)
