@@ -163,7 +163,8 @@ class TestPsu:
         mock_run_command.assert_called_with('sensors -s')
 
     @mock.patch('os.path.exists', mock.MagicMock(return_value=True))
-    def test_psu_power_threshold(self):
+    @mock.patch('utils.read_int_from_file')
+    def test_psu_power_threshold(self, mock_read_int_from_file):
         Psu.all_psus_support_power_threshold = True
         psu = Psu(0)
         common_info = {
