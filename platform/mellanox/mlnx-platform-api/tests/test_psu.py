@@ -214,6 +214,5 @@ class TestPsu:
 
     def test_psu_not_support_power_threshold(self):
         psu = Psu(0)
-        assert not Psu.all_psus_support_power_threshold
         assert psu.get_psu_power_threshold() is None
         assert psu.get_psu_power_critical_threshold() is None
