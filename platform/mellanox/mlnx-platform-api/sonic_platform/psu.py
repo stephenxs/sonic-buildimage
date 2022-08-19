@@ -216,6 +216,11 @@ class Psu(FixedPsu):
     PSU_VPD = "eeprom/psu{}_vpd"
     PSU_CURRENT_IN = "power/psu{}_curr_in"
     PSU_VOLT_IN = "power/psu{}_volt_in"
+    PORT_AMBIENT_TEMP = os.path.join(PSU_PATH, "thermal/port_amb")
+    FAN_AMBIENT_TEMP = os.path.join(PSU_PATH, "thermal/fan_amb")
+    AMBIENT_TEMP_CRITICAL_THRESHOLD = os.path.join(PSU_PATH, "config/amb_tmp_crit_limit")
+    AMBIENT_TEMP_WARNING_THRESHOLD = os.path.join(PSU_PATH, "config/amb_tmp_warn_limit")
+    PSU_POWER_SLOPE = os.path.join(PSU_PATH, "config/psu_power_slope")
 
     shared_led = None
 
@@ -238,11 +243,6 @@ class Psu(FixedPsu):
         self.psu_presence = os.path.join(PSU_PATH, "thermal/psu{}_status".format(self.index))
 
         self.psu_power_max_capacity = os.path.join(PSU_PATH, "config/psu{}_power_capacity".format(self.index))
-        self.port_ambient_temp = os.path.join(PSU_PATH, "thermal/port_amb")
-        self.fan_ambient_temp = os.path.join(PSU_PATH, "thermal/fan_amb")
-        self.ambient_temp_critical_threshold = os.path.join(PSU_PATH, "config/amb_tmp_crit_limit")
-        self.ambient_temp_warning_threshold = os.path.join(PSU_PATH, "config/amb_tmp_warn_limit")
-        self.psu_power_slope = os.path.join(PSU_PATH, "config/psu_power_slope")
 
         self.psu_temp = os.path.join(PSU_PATH, 'thermal/psu{}_temp'.format(self.index))
         self.psu_temp_threshold = os.path.join(PSU_PATH, 'thermal/psu{}_temp_max'.format(self.index))
@@ -524,13 +524,13 @@ class Psu(FixedPsu):
             if Psu.all_psus_support_power_threshold:
                 power_max_capacity = utils.read_int_from_file(self.psu_power_max_capacity)
                 temp_threshold = utils.read_int_from_file(temp_threshold_path)
-                fan_ambient_temp = utils.read_int_from_file(self.fan_ambient_temp)
-                port_ambient_temp = utils.read_int_from_file(self.port_ambient_temp)
+                fan_ambient_temp = utils.read_int_from_file(Psu.FAN_AMBIENT_TEMP)
+                port_ambient_temp = utils.read_int_from_file(Psu.PORT_AMBIENT_TEMP)
                 ambient_temp = min(fan_ambient_temp, port_ambient_temp)
                 if ambient_temp < temp_threshold:
                     power_threshold = power_max_capacity
                 else:
-                    slope = utils.read_int_from_file(self.psu_power_slope)
+                    slope = utils.read_int_from_file(Psu.PSU_POWER_SLOPE)
                     power_threshold = power_max_capacity - (ambient_temp - temp_threshold) * slope
                 if power_threshold <= 0:
                     logger.log_warning('Got negative PSU power threshold {} for {}'.format(power_threshold, self.get_name()))
@@ -547,7 +547,7 @@ class Psu(FixedPsu):
         Returns:
             A float number, the warning threshold of the PSU in watts.
         """
-        return self._get_psu_power_threshold(self.ambient_temp_warning_threshold)
+        return self._get_psu_power_threshold(Psu.AMBIENT_TEMP_WARNING_THRESHOLD)
 
     def get_psu_power_critical_threshold(self):
         """
@@ -557,7 +557,7 @@ class Psu(FixedPsu):
         Returns:
             A float number, the critical threshold of the PSU in watts.
         """
-        return self._get_psu_power_threshold(self.ambient_temp_critical_threshold)
+        return self._get_psu_power_threshold(Psu.AMBIENT_TEMP_CRITICAL_THRESHOLD)
 
 
 class InvalidPsuVolWA:

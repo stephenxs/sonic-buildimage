@@ -163,32 +163,32 @@ class TestPsu:
         mock_run_command.assert_called_with('sensors -s')
 
     @mock.patch('os.path.exists', mock.MagicMock(return_value=True))
-    @mock.patch('utils.read_int_from_file')
+    @mock.patch('sonic_platform.utils.read_int_from_file')
     def test_psu_power_threshold(self, mock_read_int_from_file):
         Psu.all_psus_support_power_threshold = True
         psu = Psu(0)
         common_info = {
             psu.psu_oper_status: 1,
             psu.psu_power_max_capacity: 100000000,
-            psu.ambient_temp_critical_threshold: 65000,
-            psu.ambient_temp_warning_threshold: 55000,
-            psu.psu_power_slope: 2000
+            psu.AMBIENT_TEMP_CRITICAL_THRESHOLD: 65000,
+            psu.AMBIENT_TEMP_WARNING_THRESHOLD: 55000,
+            psu.PSU_POWER_SLOPE: 2000
             }
         normal_data = {
-            psu.port_ambient_temp: 55000,
-            psu.fan_ambient_temp: 50000,
+            psu.PORT_AMBIENT_TEMP: 55000,
+            psu.FAN_AMBIENT_TEMP: 50000,
             'warning_threshold': 100.0,
             'critical_threshold': 100.0
             }
         warning_data = {
-            psu.port_ambient_temp: 65000,
-            psu.fan_ambient_temp: 60000,
+            psu.PORT_AMBIENT_TEMP: 65000,
+            psu.FAN_AMBIENT_TEMP: 60000,
             'warning_threshold': 90.0,
             'critical_threshold': 100.0
             }
         critical_data = {
-            psu.port_ambient_temp: 70000,
-            psu.fan_ambient_temp: 75000,
+            psu.PORT_AMBIENT_TEMP: 70000,
+            psu.FAN_AMBIENT_TEMP: 75000,
             'warning_threshold': 70.0,
             'critical_threshold': 90.0
             }
