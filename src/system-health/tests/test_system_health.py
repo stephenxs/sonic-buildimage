@@ -374,7 +374,7 @@ def test_hardware_checker():
             'power_overload': 'True',
             'power': '101.0',
             'power_critical_threshold': '100.0',
-            'power_threshold': '90.0'
+            'power_warning_threshold': '90.0'
         },
         'PSU_INFO|PSU 7': {
             'presence': 'True',
