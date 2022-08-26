@@ -201,18 +201,18 @@ class TestPsu:
 
         mock_read_int_from_file.side_effect = mock_side_effect
         test_data = normal_data
-        assert psu.get_psu_power_threshold() == normal_data['warning_threshold']
+        assert psu.get_psu_power_warning_threshold() == normal_data['warning_threshold']
         assert psu.get_psu_power_critical_threshold() == normal_data['critical_threshold']
 
         test_data = warning_data
-        assert psu.get_psu_power_threshold() == warning_data['warning_threshold']
+        assert psu.get_psu_power_warning_threshold() == warning_data['warning_threshold']
         assert psu.get_psu_power_critical_threshold() == warning_data['critical_threshold']
 
         test_data = critical_data
-        assert psu.get_psu_power_threshold() == critical_data['warning_threshold']
+        assert psu.get_psu_power_warning_threshold() == critical_data['warning_threshold']
         assert psu.get_psu_power_critical_threshold() == critical_data['critical_threshold']
 
     def test_psu_not_support_power_threshold(self):
         psu = Psu(0)
-        assert psu.get_psu_power_threshold() is None
+        assert psu.get_psu_power_warning_threshold() is None
         assert psu.get_psu_power_critical_threshold() is None
