@@ -365,6 +365,8 @@ class TestJ2Files(TestCase):
             '../../../device/arista/x86_64-arista_7260cx3_64/Arista-7260CX3-C64',
             '../../../device/mellanox/x86_64-mlnx_msn4600c-r0/Mellanox-SN4600C-C64',
             '../../../device/mellanox/x86_64-mlnx_msn4600c-r0/Mellanox-SN4600C-C64',
+            '../../../device/mellanox/x86_64-mlnx_msn4600c-r0/Mellanox-SN4600C-D48C40',
+            '../../../device/mellanox/x86_64-mlnx_msn4600c-r0/Mellanox-SN4600C-D48C40',
             '../../../device/arista/x86_64-arista_7050_qx32s/Arista-7050-QX-32S'
         ]
         sample_outputs = [
@@ -376,6 +378,8 @@ class TestJ2Files(TestCase):
             'qos-arista7260-t1-remap-disabled.json',
             'qos-mellanox4600c-c64.json',
             'qos-mellanox4600c-c64-remap-disabled.json',
+            'qos-mellanox4600c-d48c40-t0.json',
+            'qos-mellanox4600c-d48c40-t0-remap-disabled.json',
             'qos-arista7050-t0-storage-backend.json'
         ]
         sample_minigraph_files = [
@@ -387,6 +391,8 @@ class TestJ2Files(TestCase):
             'sample-arista-7260-t1-minigraph-remap-disabled.xml',
             'sample-mellanox-4600c-t1-minigraph.xml',
             'sample-mellanox-4600c-t1-minigraph-remap-disabled.xml',
+            'sample-mellanox-4600c-t0-minigraph.xml',
+            'sample-mellanox-4600c-t0-minigraph-remap-disabled.xml',
             'sample-arista-7050-t0-storage-backend-minigraph.xml'
         ]
 
