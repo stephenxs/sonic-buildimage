@@ -87,7 +87,12 @@
             "62": "1",
             "63": "1"
         },
-        "AZURE_UPLINK": {
+{% if ('type' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['type'] == 'LeafRouter') %}
+        "AZURE_UPLINK":
+{% else %}
+        "AZURE_DOWNLINK":
+{% endif %}
+        {
             "0" : "1",
             "1" : "1",
             "2" : "1",
