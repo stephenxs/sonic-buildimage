@@ -513,8 +513,12 @@ class TestJ2Files(TestCase):
             ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-C64', 'sample-mellanox-4600c-t1-minigraph.xml', 'buffers_dynamic.json.j2', 'buffers-mellanox4600c-t1-dynamic.json'),
             ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-C64', 'sample-mellanox-4600c-t1-minigraph.xml', 'buffers.json.j2', 'buffers-mellanox4600c-t1.json'),
             ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-C64', 'sample-mellanox-4600c-t1-minigraph-remap-disabled.xml', 'buffers_dynamic.json.j2', 'buffers-mellanox4600c-t1-dynamic-remap-disabled.json'),
-            ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-C64', 'sample-mellanox-4600c-t1-minigraph-remap-disabled.xml', 'buffers.json.j2', 'buffers-mellanox4600c-t1-remap-disabled.json')
-        ]
+            ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-C64', 'sample-mellanox-4600c-t1-minigraph-remap-disabled.xml', 'buffers.json.j2', 'buffers-mellanox4600c-t1-remap-disabled.json'),
+            ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-D48C40', 'sample-mellanox-4600c-t0-minigraph.xml', 'buffers_dynamic.json.j2', 'buffers-mellanox4600c-t0-dynamic.json'),
+            ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-D48C40', 'sample-mellanox-4600c-t0-minigraph.xml', 'buffers.json.j2', 'buffers-mellanox4600c-t0.json'),
+            ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-D48C40', 'sample-mellanox-4600c-t0-minigraph-remap-disabled.xml', 'buffers_dynamic.json.j2', 'buffers-mellanox4600c-t0-dynamic-remap-disabled.json'),
+            ('mellanox', 'x86_64-mlnx_msn4600c-r0', 'Mellanox-SN4600C-D48C40', 'sample-mellanox-4600c-t0-minigraph-remap-disabled.xml', 'buffers.json.j2', 'buffers-mellanox4600c-t0-remap-disabled.json')
+         ]
 
         for test_data in TEST_DATA:
             self._test_buffers_render_template(vendor=test_data[0],
