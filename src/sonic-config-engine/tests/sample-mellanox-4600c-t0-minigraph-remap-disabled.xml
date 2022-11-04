@@ -3958,16 +3958,6 @@
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
-            <a:Name>GeminiEnabled</a:Name>
-            <a:Reference i:nil="true" />
-            <a:Value>True</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
-            <a:Name>RedundancyType</a:Name>
-            <a:Reference i:nil="true" />
-            <a:Value>Gemini</a:Value>
-          </a:DeviceProperty>
-          <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>192.0.0.1;192.0.0.2;192.0.0.3;192.0.0.4</a:Value>

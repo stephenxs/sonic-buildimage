@@ -99,8 +99,8 @@
             "size": "0"
         },
         "ingress_lossless_pool": {
-            "size": "55058432",
-            "xoff": "1712128",
+            "size": "55902208",
+            "xoff": "1179648",
             "type": "ingress",
             "mode": "dynamic"
         },
@@ -110,7 +110,7 @@
             "mode": "dynamic"
         },
         "egress_lossy_pool": {
-            "size": "55058432",
+            "size": "55902208",
             "type": "egress",
             "mode": "dynamic"
         }
