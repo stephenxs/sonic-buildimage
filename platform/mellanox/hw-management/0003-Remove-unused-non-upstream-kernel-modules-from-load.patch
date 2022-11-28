@@ -1,7 +1,7 @@
-From 205dd12fa4528ef485ad787570c0e7cdda28a5f1 Mon Sep 17 00:00:00 2001
+From 439639e939f896f9aee42a4dbd5216feb728220c Mon Sep 17 00:00:00 2001
 From: Alexander Allen <arallen@nvidia.com>
 Date: Thu, 17 Feb 2022 04:19:50 +0000
-Subject: [PATCH 3/3] Remove unused non-upstream kernel modules from load
+Subject: [PATCH 3/4] Remove unused non-upstream kernel modules from load
 
 ---
  usr/etc/modules-load.d/05-hw-management-modules.conf | 2 --
