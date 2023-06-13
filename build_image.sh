@@ -56,10 +56,10 @@ generate_kvm_image()
         exit 1
     }
 
-    gzip $KVM_IMAGE_DISK
+    $GZ_COMPRESS_PROGRAM $KVM_IMAGE_DISK
 
     [ -r $KVM_IMAGE_DISK.gz ] || {
-        echo "Error : gzip $KVM_IMAGE_DISK failed!"
+        echo "Error : $GZ_COMPRESS_PROGRAM $KVM_IMAGE_DISK failed!"
         exit 1
     }
 
@@ -147,10 +147,10 @@ elif [ "$IMAGE_TYPE" = "raw" ]; then
         exit 1
     }
 
-    gzip $OUTPUT_RAW_IMAGE
+    $GZ_COMPRESS_PROGRAM $OUTPUT_RAW_IMAGE
 
     [ -r $OUTPUT_RAW_IMAGE.gz ] || {
-        echo "Error : gzip $OUTPUT_RAW_IMAGE failed!"
+        echo "Error : $GZ_COMPRESS_PROGRAM $OUTPUT_RAW_IMAGE failed!"
         exit 1
     }
 
@@ -202,12 +202,12 @@ elif [ "$IMAGE_TYPE" = "aboot" ]; then
     zip -g $OUTPUT_ABOOT_IMAGE .platforms_asic
 
     if [ "$ENABLE_FIPS" = "y" ]; then
-        echo "sonic_fips=1" > kernel-cmdline
+        echo "sonic_fips=1" >> kernel-cmdline-append
     else
-        echo "sonic_fips=0" > kernel-cmdline
+        echo "sonic_fips=0" >> kernel-cmdline-append
     fi
-    zip -g $OUTPUT_ABOOT_IMAGE kernel-cmdline
-    rm kernel-cmdline
+    zip -g $OUTPUT_ABOOT_IMAGE kernel-cmdline-append
+    rm kernel-cmdline-append
 
     zip -g $OUTPUT_ABOOT_IMAGE $ABOOT_BOOT_IMAGE
     rm $ABOOT_BOOT_IMAGE

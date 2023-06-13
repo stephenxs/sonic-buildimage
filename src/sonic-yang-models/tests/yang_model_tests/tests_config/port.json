@@ -476,7 +476,7 @@
             }
         }
     },
-    
+
     "PORT_VALID_MUX_CABLE_TEST": {
         "sonic-port:sonic-port": {
             "sonic-port:PORT": {
@@ -515,7 +515,60 @@
             }
         }
     },
-    
+
+    "PORT_INVALID_SUBPORT_NUMBER": {
+         "sonic-port:sonic-port": {
+             "sonic-port:PORT": {
+                 "PORT_LIST": [
+                     {
+                         "name": "Ethernet0",
+                         "alias": "etp1a",
+                         "lanes": "60, 61",
+                         "speed": 100000,
+                         "subport": 9
+                     }
+                 ]
+             }
+         }
+     },
+
+     "PORT_VALID_SUBPORT_NUMBER": {
+        "sonic-port:sonic-port": {
+            "sonic-port:PORT": {
+                "PORT_LIST": [
+                    {
+                        "name": "Ethernet0",
+                        "alias": "etp1a",
+                        "lanes": "60, 61",
+                        "speed": 100000,
+                        "subport": 1
+                    },
+                    {
+                       "name": "Ethernet2",
+                        "alias": "etp1b",
+                        "lanes": "62, 63",
+                        "speed": 100000,
+                        "subport": 2
+                    },
+                    {
+                        "name": "Ethernet4",
+                        "alias": "etp1c",
+                        "lanes": "64, 65",
+                        "speed": 100000,
+                        "subport": 3
+                    },
+                    {
+                        "name": "Ethernet6",
+                        "alias": "etp1d",
+                        "lanes": "66, 67",
+                        "speed": 100000,
+                        "subport": 4
+                    }
+                ]
+            }
+        }
+    },
+
     "PORT_VALID_MULTIASIC_TEST": {
         "sonic-port:sonic-port": {
             "sonic-port:PORT": {

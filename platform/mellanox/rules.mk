@@ -29,7 +29,9 @@ include $(PLATFORM_PATH)/mlnx-ffb.mk
 include $(PLATFORM_PATH)/issu-version.mk
 include $(PLATFORM_PATH)/mlnx-onie-fw-update.mk
 include $(PLATFORM_PATH)/mlnx-ssd-fw-update.mk
+include $(PLATFORM_PATH)/iproute2.mk
 include $(PLATFORM_PATH)/install-pending-fw.mk
+include $(PLATFORM_PATH)/integration-scripts.mk
 
 SONIC_ALL += $(SONIC_ONE_IMAGE) \
              $(DOCKER_FPM)
@@ -51,7 +53,7 @@ $(DOCKER_PLATFORM_MONITOR)_DEPENDS += $(APPLIBS) $(SX_COMPLIB) $(SXD_LIBS) $(SX_
 # Force the target bootloader for mellanox platforms to grub regardless of arch
 TARGET_BOOTLOADER = grub
 
-# location for the platform specific external kernel patches tarball
-override EXTERNAL_KERNEL_PATCH_TAR := $(BUILD_WORKDIR)/$(PLATFORM_PATH)/non-upstream-patches/patches.tar.gz
+# location for the platform specific external kernel patches
+override EXTERNAL_KERNEL_PATCH_LOC := $(BUILD_WORKDIR)/$(PLATFORM_PATH)/non-upstream-patches/
 
 export SONIC_BUFFER_MODEL=dynamic

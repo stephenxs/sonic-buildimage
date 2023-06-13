@@ -104,7 +104,23 @@ static int get_target_lines(char* unit_file, char* target_lines[]) {
 static bool is_multi_instance_service(char *service_name){
     int i;
     for(i=0; i < num_multi_inst; i++){
-        if (strstr(service_name, multi_instance_services[i]) != NULL) {
+        /*
+         * The service name may contain @.service or .service. Remove these
+         * postfixes and extract service name. Compare service name for absolute
+         * match in multi_instance_services[].
+         * This is to prevent services like database-chassis and systemd-timesyncd marked
+         * as multi instance services as they contain strings 'database' and 'syncd' respectively
+         * which are multi instance services in multi_instance_services[].
+         */
+        char *saveptr;
+        char *token = strtok_r(service_name, "@", &saveptr);
+        if (token) {
+            if (strstr(token, ".service") != NULL) {
+                /* If we are here, service_name did not have '@' delimiter but contains '.service' */
+                token = strtok_r(service_name, ".", &saveptr);
+            }
+        }
+        if (strncmp(service_name, multi_instance_services[i], strlen(service_name)) == 0) {
             return true;
         }
     }
@@ -592,11 +608,14 @@ int ssg_main(int argc, char **argv) {
     for (int i = 0; i < num_unit_files; i++) {
         unit_instance = strdup(unit_files[i]);
         if ((num_asics == 1) && strstr(unit_instance, "@") != NULL) {
-            prefix = strtok_r(unit_instance, "@", &saveptr);
-            suffix = strtok_r(NULL, "@", &saveptr);
+            prefix = strdup(strtok_r(unit_instance, "@", &saveptr));
+            suffix = strdup(strtok_r(NULL, "@", &saveptr));
 
             strcpy(unit_instance, prefix);
             strcat(unit_instance, suffix);
+
+            free(prefix);
+            free(suffix);
         }
 
         num_targets = get_install_targets(unit_instance, targets);

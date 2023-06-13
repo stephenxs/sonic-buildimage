@@ -30,7 +30,7 @@ stderr_logfile=syslog
 dependent_startup=true
 
 [program:zebra]
-command=/usr/lib/frr/zebra -A 127.0.0.1 -s 90000000 -M fpm -M snmp
+command=/usr/lib/frr/zebra -A 127.0.0.1 -s 90000000 -M dplane_fpm_nl -M snmp --asic-offload=notify_on_offload
 priority=4
 autostart=false
 autorestart=false
@@ -140,6 +140,20 @@ stdout_logfile=syslog
 stderr_logfile=syslog
 dependent_startup=true
 dependent_startup_wait_for=bgpd:running
+
+{% if DEVICE_METADATA.localhost.frr_mgmt_framework_config is defined and DEVICE_METADATA.localhost.frr_mgmt_framework_config == "true" %}
+{% else %}
+[program:staticroutebfd]
+command=/usr/local/bin/staticroutebfd
+priority=6
+autostart=false
+autorestart=false
+startsecs=0
+stdout_logfile=syslog
+stderr_logfile=syslog
+dependent_startup=true
+dependent_startup_wait_for=bgpd:running
+{% endif %}
 
 [program:bgpmon]
 command=/usr/local/bin/bgpmon

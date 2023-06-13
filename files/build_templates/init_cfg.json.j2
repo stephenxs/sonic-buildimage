@@ -37,12 +37,12 @@
                    ("lldp", "enabled", true, "enabled"),
                    ("pmon", "enabled", true, "enabled"),
                    ("pmon", "enabled", false, "enabled"),
-                   ("radv", "enabled", false, "enabled"),
                    ("snmp", "enabled", true, "enabled"),
                    ("eventd", "enabled", false, "enabled"),
                    ("swss", "enabled", false, "enabled"),
-                   ("syncd", "enabled", false, "enabled"),
-                   ("teamd", "{% if not DEVICE_RUNTIME_METADATA['ETHERNET_PORTS_PRESENT'] %}disabled{% else %}enabled{% endif %}", false, "enabled")] %}
+                   ("syncd", "enabled", false, "enabled")] %}
+{%- if include_router_advertiser == "y" %}{% do features.append(("radv", "enabled", false, "enabled")) %}{% endif %}
+{%- if include_teamd == "y" %}{% do features.append(("teamd", "{% if not DEVICE_RUNTIME_METADATA['ETHERNET_PORTS_PRESENT'] %}disabled{% else %}enabled{% endif %}", false, "enabled")) %}{% endif %}
 {% do features.append(("dhcp_relay", "{% if not (DEVICE_METADATA is defined and DEVICE_METADATA['localhost'] is defined and DEVICE_METADATA['localhost']['type'] is defined and DEVICE_METADATA['localhost']['type'] is not in ['ToRRouter', 'EPMS', 'MgmtTsToR', 'MgmtToRRouter', 'BmcMgmtToRRouter']) %}enabled{% else %}disabled{% endif %}", false, "enabled")) %}
 {%- if sonic_asic_platform == "vs" %}{% do features.append(("gbsyncd", "enabled", false, "enabled")) %}{% endif %}
 {%- if include_iccpd == "y" %}{% do features.append(("iccpd", "disabled", false, "enabled")) %}{% endif %}
@@ -55,11 +55,11 @@
 {%- if include_macsec == "y" %}{% do features.append(("macsec", "{% if 'type' in DEVICE_METADATA['localhost'] and DEVICE_METADATA['localhost']['type'] == 'SpineRouter' and DEVICE_RUNTIME_METADATA['MACSEC_SUPPORTED'] %}enabled{% else %}disabled{% endif %}", false, "enabled")) %}{% endif %}
 {%- if include_system_telemetry == "y" %}{% do features.append(("telemetry", "enabled", true, "enabled")) %}{% endif %}
     "FEATURE": {
-{# has_timer field if set, will start the feature systemd .timer unit instead of .service unit #}
-{%- for feature, state, has_timer, autorestart in features %}
+{# delayed field if set, will start the feature systemd .timer unit instead of .service unit #}
+{%- for feature, state, delayed, autorestart in features %}
         "{{feature}}": {
             "state": "{{state}}",
-            "has_timer" : {{has_timer | lower()}},
+            "delayed" : {{delayed | lower()}},
             "has_global_scope": {% if feature + '.service' in installer_services.split(' ') %}true{% else %}false{% endif %},
 {%- if feature in ["lldp"] %}
             "has_per_asic_scope": {% raw %}"{% if not DEVICE_RUNTIME_METADATA['ETHERNET_PORTS_PRESENT'] or ('CHASSIS_METADATA' in DEVICE_RUNTIME_METADATA and DEVICE_RUNTIME_METADATA['CHASSIS_METADATA']['module_type'] in ['supervisor']) %}False{% else %}True{% endif %}"{% endraw %},
@@ -67,6 +67,7 @@
             "has_per_asic_scope": {% if feature + '@.service' in installer_services.split(' ') %}"True"{% else %}"False"{% endif %},
 {%- endif %}
             "auto_restart": "{{autorestart}}",
+            "support_syslog_rate_limit" : "true",
 {# Set check_up_status to true here when app readiness will be marked in state db  #}
 {# For now, to support the infrastrucure, setting the check_up_status to false for bgp,swss,pmon  #}
 {# Once apps like bgp,synd supports app readiness, then bgp,syncd can set check_up_status to true #}
@@ -105,6 +106,20 @@
         }{%if not loop.last %},{% endif -%}
 {% endfor %}
     },
+    "SYSLOG_CONFIG": {
+        "GLOBAL": {
+            "rate_limit_interval" : "0",
+            "rate_limit_burst" : "0"
+        }
+    },
+    "SYSLOG_CONFIG_FEATURE": {
+{%- for feature, _, _, _ in features %}
+        "{{feature}}": {
+            "rate_limit_interval" : "300",
+            "rate_limit_burst": "20000"
+        }{%if not loop.last %},{% endif -%}
+{% endfor %}
+    },
     "PASSW_HARDENING": {
         "POLICIES":{
             "state": "disabled",
@@ -118,5 +133,16 @@
             "digits_class": "true",
             "special_class": "true"
         }
+    },
+    "SYSTEM_DEFAULTS" : {
+{%- if include_mux == "y" %}
+        "mux_tunnel_egress_acl": {
+{%- if sonic_asic_platform == "mellanox" %}
+            "status": "enabled"
+{% else %}
+            "status": "disabled"
+{% endif %}
+        }
+{% endif %}
     }
 }

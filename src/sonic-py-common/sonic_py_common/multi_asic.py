@@ -18,7 +18,7 @@ EXTERNAL_PORT = 'Ext'
 INTERNAL_PORT = 'Int'
 INBAND_PORT = 'Inb'
 RECIRC_PORT ='Rec'
-PORT_CHANNEL_CFG_DB_TABLE = 'PORTCHANNEL'
+PORT_CHANNEL_MEMBER_CFG_DB_TABLE = 'PORTCHANNEL_MEMBER'
 PORT_CFG_DB_TABLE = 'PORT'
 BGP_NEIGH_CFG_DB_TABLE = 'BGP_NEIGHBOR'
 BGP_INTERNAL_NEIGH_CFG_DB_TABLE = 'BGP_INTERNAL_NEIGHBOR'
@@ -26,7 +26,7 @@ NEIGH_DEVICE_METADATA_CFG_DB_TABLE = 'DEVICE_NEIGHBOR_METADATA'
 DEFAULT_NAMESPACE = ''
 PORT_ROLE = 'role'
 CHASSIS_STATE_DB='CHASSIS_STATE_DB'
-CHASSIS_ASIC_INFO_TABLE='CHASSIS_ASIC_TABLE'
+CHASSIS_FABRIC_ASIC_INFO_TABLE='CHASSIS_FABRIC_ASIC_TABLE'
 
 # Dictionary to cache config_db connection handle per namespace
 # to prevent duplicate connections from being opened
@@ -52,9 +52,9 @@ def connect_config_db_for_ns(namespace=DEFAULT_NAMESPACE):
 def connect_to_all_dbs_for_ns(namespace=DEFAULT_NAMESPACE):
     """
     The function connects to the DBs for a given namespace and
-    returns the handle 
-    
-    For voq chassis systems, the db list includes databases from 
+    returns the handle
+
+    For voq chassis systems, the db list includes databases from
     supervisor card. Avoid connecting to these databases from linecards
 
     If no namespace is provided, it will connect to the db in the
@@ -354,13 +354,12 @@ def is_port_channel_internal(port_channel, namespace=None):
 
     for ns in ns_list:
         config_db = connect_config_db_for_ns(ns)
-        port_channels = config_db.get_entry(PORT_CHANNEL_CFG_DB_TABLE, port_channel)
+        port_channel_members = config_db.get_keys(PORT_CHANNEL_MEMBER_CFG_DB_TABLE)
 
-        if port_channels:
-            if 'members' in port_channels:
-                members = port_channels['members']
-                if is_port_internal(members[0], namespace):
-                    return True
+        for port_channel_member in port_channel_members:
+            if port_channel_member[0] != port_channel:
+                continue
+            return is_port_internal(port_channel_member[1], namespace)
 
     return False
 
@@ -380,14 +379,14 @@ def get_back_end_interface_set(namespace=None):
         ns_list = get_namespace_list(namespace)
         for ns in ns_list:
             config_db = connect_config_db_for_ns(ns)
-            port_channels = config_db.get_table(PORT_CHANNEL_CFG_DB_TABLE)
+            port_channel_members = config_db.get_keys(PORT_CHANNEL_MEMBER_CFG_DB_TABLE)
             # a back-end LAG must be configured with all of its member from back-end interfaces.
             # mixing back-end and front-end interfaces is miss configuration and not allowed.
             # To determine if a LAG is back-end LAG, just need to check its first member is back-end or not
             # is sufficient. Note that a user defined LAG may have empty members so the list expansion logic
             # need to ensure there are members before inspecting member[0].
-            bk_end_intf_list.extend([port_channel for port_channel, lag_info in port_channels.items()\
-                                if 'members' in lag_info and lag_info['members'][0] in bk_end_intf_list])
+            bk_end_intf_list.extend(set([port_channel_member[0] for port_channel_member in port_channel_members\
+                                if port_channel_member[1] in bk_end_intf_list]))
     a = set()
     a.update(bk_end_intf_list)
     return a
@@ -464,7 +463,7 @@ def get_asic_presence_list():
               for inserted and detected fabric cards. For non-supervisor cards, e.g. line card, the list should
               contain all supported asics by the card. The function gets the asic list from CHASSIS_ASIC_TABLE from
               CHASSIS_STATE_DB. The function assumes that the first N asic ids (asic0 to asic(N-1)) in
-              CHASSIS_ASIC_TABLE belongs to the supervisor, where N is the max number of asics supported by the Chassis 
+              CHASSIS_ASIC_TABLE belongs to the supervisor, where N is the max number of asics supported by the Chassis
     @return:  List of asics present
     """
     asics_list = []
@@ -478,7 +477,7 @@ def get_asic_presence_list():
             # Get asic list from CHASSIS_ASIC_TABLE which lists only the asics
             # present based on Fabric card detection by the platform.
             db = swsscommon.DBConnector(CHASSIS_STATE_DB, 0, True)
-            asic_table = swsscommon.Table(db, CHASSIS_ASIC_INFO_TABLE)
+            asic_table = swsscommon.Table(db, CHASSIS_FABRIC_ASIC_INFO_TABLE)
             if asic_table:
                 asics_presence_list = list(asic_table.getKeys())
                 for asic in asics_presence_list:

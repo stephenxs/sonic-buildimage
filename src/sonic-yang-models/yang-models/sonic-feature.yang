@@ -57,9 +57,9 @@ module sonic-feature{
                     default "enabled";
                 }
 
-                leaf has_timer {
-                    description "This configuration identicates if there is
-                                timer associated to this feature";
+                leaf delayed {
+                    description "This configuration identicates if the feature needs to be delayed until
+                                 system initialization";
                     type stypes:boolean_type;
                     default "false";
                 }
@@ -95,6 +95,13 @@ module sonic-feature{
                 leaf check_up_status {
                     description "This configuration controls the system ready tool to check
                         the app ready/up status";
+                    type stypes:boolean_type;
+                    default "false";
+                }
+
+                leaf support_syslog_rate_limit {
+                    description "This configuration indicates the feature support configuring
+                                 syslog rate limit";
                     type stypes:boolean_type;
                     default "false";
                 }

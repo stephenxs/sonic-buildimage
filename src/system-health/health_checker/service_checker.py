@@ -26,13 +26,13 @@ class ServiceChecker(HealthChecker):
     CRITICAL_PROCESSES_PATH = 'etc/supervisor/critical_processes'
 
     # Command to get merged directory of a container
-    GET_CONTAINER_FOLDER_CMD = ['docker', 'inspect', '', '--format', "{{.GraphDriver.Data.MergedDir}}"]
+    GET_CONTAINER_FOLDER_CMD = 'docker inspect {} --format "{{{{.GraphDriver.Data.MergedDir}}}}"'
 
     # Command to query the status of monit service.
-    CHECK_MONIT_SERVICE_CMD = ['systemctl', 'is-active', 'monit.service']
+    CHECK_MONIT_SERVICE_CMD = 'systemctl is-active monit.service'
 
     # Command to get summary of critical system service.
-    CHECK_CMD = ['monit', 'summary', '-B']
+    CHECK_CMD = 'monit summary -B'
     MIN_CHECK_CMD_LINES = 3
 
     # Expect status for different system service category.
@@ -58,7 +58,7 @@ class ServiceChecker(HealthChecker):
         self.load_critical_process_cache()
 
         self.events_handle = swsscommon.events_init_publisher(EVENTS_PUBLISHER_SOURCE)
- 
+
     def get_expected_running_containers(self, feature_table):
         """Get a set of containers that are expected to running on SONiC
 
@@ -71,6 +71,19 @@ class ServiceChecker(HealthChecker):
         """
         expected_running_containers = set()
         container_feature_dict = {}
+
+        # Get current asic presence list. For multi_asic system, multi instance containers
+        # should be checked only for asics present.
+        asics_id_presence = multi_asic.get_asic_presence_list()
+
+        # Some services may run all the instances irrespective of asic presence.
+        # Add those to exception list.
+        # database service: Currently services have dependency on all database services to
+        # be up irrespective of asic presence.
+        # bgp service: Currently bgp runs all instances. Once this is fixed to be config driven,
+        # it will be removed from exception list.
+        run_all_instance_list = ['database', 'bgp']
+
         for feature_name, feature_entry in feature_table.items():
             if feature_entry["state"] not in ["disabled", "always_disabled"]:
                 if multi_asic.is_multi_asic():
@@ -80,8 +93,9 @@ class ServiceChecker(HealthChecker):
                     if feature_entry["has_per_asic_scope"] == "True":
                         num_asics = multi_asic.get_num_asics()
                         for asic_id in range(num_asics):
-                            expected_running_containers.add(feature_name + str(asic_id))
-                            container_feature_dict[feature_name + str(asic_id)] = feature_name
+                            if asic_id in asics_id_presence or feature_name in run_all_instance_list:
+                                expected_running_containers.add(feature_name + str(asic_id))
+                                container_feature_dict[feature_name + str(asic_id)] = feature_name
                 else:
                     expected_running_containers.add(feature_name)
                     container_feature_dict[feature_name] = feature_name
@@ -172,8 +186,7 @@ class ServiceChecker(HealthChecker):
         self.need_save_cache = True
 
     def _get_container_folder(self, container):
-        ServiceChecker.GET_CONTAINER_FOLDER_CMD[2] = str(container)
-        container_folder = utils.run_command(ServiceChecker.GET_CONTAINER_FOLDER_CMD)
+        container_folder = utils.run_command(ServiceChecker.GET_CONTAINER_FOLDER_CMD.format(container))
         if container_folder is None:
             return container_folder
 
@@ -256,7 +269,7 @@ class ServiceChecker(HealthChecker):
             config (config.Config): Health checker configuration.
         """
         if not self.config_db:
-            self.config_db = swsscommon.ConfigDBConnector()
+            self.config_db = swsscommon.ConfigDBConnector(use_unix_socket_path=True)
             self.config_db.connect()
         feature_table = self.config_db.get_table("FEATURE")
         expected_running_containers, self.container_feature_dict = self.get_expected_running_containers(feature_table)
@@ -339,11 +352,11 @@ class ServiceChecker(HealthChecker):
                 # We are using supervisorctl status to check the critical process status. We cannot leverage psutil here because
                 # it not always possible to get process cmdline in supervisor.conf. E.g, cmdline of orchagent is "/usr/bin/orchagent",
                 # however, in supervisor.conf it is "/usr/bin/orchagent.sh"
-                cmd = ['docker', 'exec', str(container_name), 'bash', '-c', "supervisorctl status"]
+                cmd = 'docker exec {} bash -c "supervisorctl status"'.format(container_name)
                 process_status = utils.run_command(cmd)
                 if process_status is None:
                     for process_name in critical_process_list:
-                        self.set_object_not_ok('Process', '{}:{}'.format(container_name, process_name), "'{}' is not running".format(process_name))
+                        self.set_object_not_ok('Process', '{}:{}'.format(container_name, process_name), "Process '{}' in container '{}' is not running".format(process_name, container_name))
                     self.publish_events(container_name, critical_process_list)
                     return
 
@@ -356,6 +369,6 @@ class ServiceChecker(HealthChecker):
                     # and it is safe to ignore such process. E.g, radv. So here we only check those processes which are in process_status.
                     if process_name in process_status:
                         if process_status[process_name] != 'RUNNING':
-                            self.set_object_not_ok('Process', '{}:{}'.format(container_name, process_name), "'{}' is not running".format(process_name))
+                            self.set_object_not_ok('Process', '{}:{}'.format(container_name, process_name), "Process '{}' in container '{}' is not running".format(process_name, container_name))
                         else:
                             self.set_object_ok('Process', '{}:{}'.format(container_name, process_name))

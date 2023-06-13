@@ -180,7 +180,7 @@
       <DataAcls/>
       <AclInterfaces>
         <AclInterface>
-          <AttachTo>PortChannel01</AttachTo>
+          <AttachTo>PortChannel01;Ethernet0;Ethernet12</AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
@@ -359,7 +359,7 @@
         <DeviceLocation i:nil="true"/>
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>10.7.0.196/26</a:IPPrefix>
-        </ManagementAddress> 
+        </ManagementAddress>
         <HwSku>Force10-S6000</HwSku>
       </Device>
       <Device i:type="SmartCable">
@@ -537,6 +537,11 @@
       <a:Reference i:nil="true"/>
       <a:Value>Mixed</a:Value>
      </a:DeviceProperty>
+    <a:DeviceProperty>
+      <a:Name>RackMgmtMap</a:Name>
+      <a:Reference i:nil="true"/>
+      <a:Value>dummy_value</a:Value>
+    </a:DeviceProperty>
   </a:Properties>
   </a:DeviceMetadata>
  </Devices>

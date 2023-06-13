@@ -37,6 +37,9 @@
 #  * ENABLE_TRANSLIB_WRITE: Enable translib write/config operations via the gNMI interface.
 #  *                 Default: unset
 #  *                 Values: y
+#  * ENABLE_NATIVE_WRITE: Enable native write/config operations via the gNMI interface.
+#  *                 Default: unset
+#  *                 Values: y
 #  * SONIC_DPKG_CACHE_METHOD: Specifying method of obtaining the Debian packages from cache: none or cache
 #  * SONIC_DPKG_CACHE_SOURCE: Debian package cache location when cache enabled for debian packages
 #  * BUILD_LOG_TIMESTAMP: Set timestamp in the build log (simple/none)
@@ -50,6 +53,13 @@
 #  * ENABLE_BOOTCHART: Enable SONiC bootchart
 #  *                 Default: n
 #  *                 Values: y,n
+#  * GZ_COMPRESS_PROGRAM: Select pigz to reduce build time
+#  *                 Default: gzip
+#  *                 Values: pigz,gzip
+#  * UNATTENDED: Don't wait for interactive input from terminal, setting this
+#  *             value to anything will enable it
+#  *             Default: unset
+#  *             Value: y
 #
 ###############################################################################
 
@@ -137,6 +147,10 @@ ifeq ($(ENABLE_DOCKER_BASE_PULL),)
 	override ENABLE_DOCKER_BASE_PULL = n
 endif
 
+ifneq ($(GZ_COMPRESS_PROGRAM), pigz)
+override GZ_COMPRESS_PROGRAM = gzip
+endif
+
 ifeq ($(CONFIGURED_ARCH),amd64)
 SLAVE_BASE_IMAGE = $(SLAVE_DIR)
 MULTIARCH_QEMU_ENVIRON = n
@@ -172,11 +186,23 @@ ifeq ($(ENABLE_FIPS), y)
 endif
 endif
 
+SONIC_VERSION_CACHE := $(filter-out none,$(SONIC_VERSION_CACHE_METHOD))
+SONIC_OVERRIDE_BUILD_VARS += SONIC_VERSION_CACHE=$(SONIC_VERSION_CACHE)
+SONIC_OVERRIDE_BUILD_VARS += SONIC_VERSION_CACHE_SOURCE=$(SONIC_VERSION_CACHE_SOURCE)
+export SONIC_VERSION_CACHE SONIC_VERSION_CACHE_SOURCE
+$(shell test -d $(SONIC_VERSION_CACHE_SOURCE) || \
+    mkdir -p $(SONIC_VERSION_CACHE_SOURCE) && chmod -f 777 $(SONIC_VERSION_CACHE_SOURCE) 2>/dev/null )
+
 # Generate the version control build info
 $(shell \
 	SONIC_VERSION_CONTROL_COMPONENTS=$(SONIC_VERSION_CONTROL_COMPONENTS) \
 	TRUSTED_GPG_URLS=$(TRUSTED_GPG_URLS) \
 	PACKAGE_URL_PREFIX=$(PACKAGE_URL_PREFIX) \
+	DISTRO=$(BLDENV) \
+	SONIC_VERSION_CACHE=$(SONIC_VERSION_CACHE) \
+	SONIC_VERSION_CACHE_SOURCE=$(SONIC_VERSION_CACHE_SOURCE) \
+	DBGOPT='$(DBGOPT)' \
+	MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) \
 	scripts/generate_buildinfo_config.sh)
 
 # Generate the slave Dockerfile, and prepare build info for it
@@ -186,6 +212,7 @@ $(shell CONFIGURED_ARCH=$(CONFIGURED_ARCH) \
 	ENABLE_FIPS_FEATURE=$(ENABLE_FIPS_FEATURE) \
 	DOCKER_EXTRA_OPTS=$(DOCKER_EXTRA_OPTS) \
 	DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) \
+	GZ_COMPRESS_PROGRAM=$(GZ_COMPRESS_PROGRAM) \
 	j2 $(SLAVE_DIR)/Dockerfile.j2 > $(SLAVE_DIR)/Dockerfile)
 
 $(shell CONFIGURED_ARCH=$(CONFIGURED_ARCH) \
@@ -193,8 +220,16 @@ $(shell CONFIGURED_ARCH=$(CONFIGURED_ARCH) \
 	CROSS_BUILD_ENVIRON=$(CROSS_BUILD_ENVIRON) \
 	j2 $(SLAVE_DIR)/Dockerfile.user.j2 > $(SLAVE_DIR)/Dockerfile.user)
 
+ifeq ($(CROSS_BUILD_ENVIRON), y)
+$(shell MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) scripts/build_mirror_config.sh $(SLAVE_DIR) amd64 $(BLDENV))
+endif
+$(shell MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) scripts/build_mirror_config.sh $(SLAVE_DIR) $(CONFIGURED_ARCH) $(BLDENV))
+
 PREPARE_DOCKER=BUILD_SLAVE=y \
 	DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) \
+	SONIC_VERSION_CACHE=$(SONIC_VERSION_CACHE) \
+	DBGOPT='$(DBGOPT)' \
+	MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) \
 	scripts/prepare_docker_buildinfo.sh \
 		$(SLAVE_BASE_IMAGE) \
 		$(SLAVE_DIR)/Dockerfile \
@@ -208,8 +243,7 @@ $(shell $(PREPARE_DOCKER) )
 SLAVE_BASE_TAG = $(shell \
 	cat $(SLAVE_DIR)/Dockerfile \
 		$(SLAVE_DIR)/sources.list.* \
-		$(SLAVE_DIR)/buildinfo/versions/versions-* \
-		src/sonic-build-hooks/hooks/* 2>/dev/null \
+		$(SLAVE_DIR)/buildinfo/versions/versions-* 2>/dev/null \
 	| sha1sum \
 	| awk '{print substr($$1,0,11);}')
 
@@ -217,16 +251,22 @@ SLAVE_BASE_TAG = $(shell \
 SLAVE_TAG = $(shell \
 	(cat $(SLAVE_DIR)/Dockerfile.user \
 		 $(SLAVE_DIR)/Dockerfile \
+		 $(SLAVE_DIR)/sources.list.* \
 		 $(SLAVE_DIR)/buildinfo/versions/versions-* \
-		 .git/HEAD \
 	&& echo $(USER)/$(PWD)/$(CONFIGURED_PLATFORM)) \
 	| sha1sum \
 	| awk '{print substr($$1,0,11);}')
 
 COLLECT_DOCKER=DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) \
+	SONIC_VERSION_CACHE=$(SONIC_VERSION_CACHE) \
+	DBGOPT='$(DBGOPT)' \
 	scripts/collect_docker_version_files.sh \
-	$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) \
-		target 
+		$(SLAVE_BASE_IMAGE) \
+		target \
+		$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) \
+		$(SLAVE_DIR) \
+		$(SLAVE_DIR)/Dockerfile
+
 OVERLAY_MODULE_CHECK := \
     lsmod | grep -q "^overlay " &>/dev/null || \
     zgrep -q 'CONFIG_OVERLAY_FS=y' /proc/config.gz &>/dev/null || \
@@ -242,7 +282,7 @@ endif
 DOCKER_LOCKFILE_SAVE := $(DOCKER_LOCKDIR)/docker_save.lock
 $(shell mkdir -m 0777 -p $(DOCKER_LOCKDIR))
 $(shell [ -f $(DOCKER_LOCKFILE_SAVE) ] || (touch $(DOCKER_LOCKFILE_SAVE) && chmod 0777 $(DOCKER_LOCKFILE_SAVE)))
-$(docker run --rm -v $(DOCKER_ROOT)\:/mount alpine sh -c 'rm -rf /mount/')
+$(shell [ -d $(DOCKER_ROOT) ] && docker run --rm -v $(DOCKER_ROOT)\:/mount debian sh -c 'rm -rf /mount/*')
 $(mkdir -p $(DOCKER_ROOT))
 
 ifeq ($(DOCKER_BUILDER_MOUNT),)
@@ -276,8 +316,25 @@ ifdef SONIC_BUILD_QUIETER
 	DOCKER_RUN += -e "SONIC_BUILD_QUIETER=$(SONIC_BUILD_QUIETER)"
 endif
 
+# Mount the Signing key and Certificate in the slave container
+ifneq ($(SECURE_UPGRADE_DEV_SIGNING_KEY),)
+    DOCKER_RUN += -v $(SECURE_UPGRADE_DEV_SIGNING_KEY):$(SECURE_UPGRADE_DEV_SIGNING_KEY):ro
+endif
+ifneq ($(SECURE_UPGRADE_SIGNING_CERT),)
+    DOCKER_RUN += -v $(SECURE_UPGRADE_SIGNING_CERT):$(SECURE_UPGRADE_SIGNING_CERT):ro
+endif
+# Mount the Signing prod tool in the slave container
+$(info "SECURE_UPGRADE_PROD_SIGNING_TOOL": "$(SECURE_UPGRADE_PROD_SIGNING_TOOL)")
+ifneq ($(SECURE_UPGRADE_PROD_SIGNING_TOOL),)
+	DOCKER_RUN += -v $(SECURE_UPGRADE_PROD_SIGNING_TOOL):/sonic/scripts/$(shell basename -- $(SECURE_UPGRADE_PROD_SIGNING_TOOL)):ro
+endif
+
 ifneq ($(SONIC_DPKG_CACHE_SOURCE),)
 	DOCKER_RUN += -v "$(SONIC_DPKG_CACHE_SOURCE):/dpkg_cache:rw"
+endif
+
+ifneq ($(SONIC_VERSION_CACHE_SOURCE),)
+	DOCKER_RUN += -v "$(SONIC_VERSION_CACHE_SOURCE):/vcache:rw"
 endif
 
 ifeq ($(SONIC_ENABLE_SECUREBOOT_SIGNATURE), y)
@@ -327,19 +384,19 @@ ifeq ($(DOCKER_DATA_ROOT_FOR_MULTIARCH),)
 endif
     # Multiarch docker cannot start dockerd service due to iptables cannot run over different arch kernel
     SONIC_SERVICE_DOCKERD_FOR_MULTIARCH=y
-    SONIC_NATIVE_DOCKERD_FOR_MUTLIARCH := dockerd  --experimental=true --storage-driver=vfs \
+    SONIC_NATIVE_DOCKERD_FOR_MULTIARCH := dockerd  --experimental=true --storage-driver=vfs \
         --data-root=$(DOCKER_DATA_ROOT_FOR_MULTIARCH) --exec-root=/var/run/march/docker/ \
         -H unix:///var/run/march/docker.sock -p /var/run/march/docker.pid
 
 ifneq ($(DOCKER_CONFIG_FILE_FOR_MULTIARCH),)
-    SONIC_NATIVE_DOCKERD_FOR_MUTLIARCH += --config-file=$(DOCKER_CONFIG_FILE_FOR_MULTIARCH)
+    SONIC_NATIVE_DOCKERD_FOR_MULTIARCH += --config-file=$(DOCKER_CONFIG_FILE_FOR_MULTIARCH)
 endif
 
     DOCKER_RUN += -v /var/run/march/docker.sock:/var/run/docker.sock
     DOCKER_RUN += -v /var/run/march/docker.pid:/var/run/docker.pid
     DOCKER_RUN += -v /var/run/march/docker:/var/run/docker
     DOCKER_RUN += -v $(DOCKER_DATA_ROOT_FOR_MULTIARCH):/var/lib/docker
-    SONIC_USERFACL_DOCKERD_FOR_MUTLIARCH := setfacl -m user:$(USER):rw /var/run/march/docker.sock
+    SONIC_USERFACL_DOCKERD_FOR_MULTIARCH := setfacl -m user:$(USER):rw /var/run/march/docker.sock
 
     #Override Native config to prevent docker service
     SONIC_CONFIG_USE_NATIVE_DOCKERD_FOR_BUILD=y
@@ -347,7 +404,7 @@ endif
     DOCKER_MULTIARCH_CHECK := docker run --rm --privileged multiarch/qemu-user-static --reset -p yes --credential yes
 
     DOCKER_SERVICE_SAFE_KILLER :=  (MARCH_PID=`ps -eo pid,cmd | grep "[0-9] dockerd.*march" | awk '{print $$1}'`; echo "Killing march docker $$MARCH_PID"; [ -z "$$MARCH_PID" ] || sudo kill -9 "$$MARCH_PID";)
-    DOCKER_SERVICE_MULTIARCH_CHECK := ($(DOCKER_SERVICE_SAFE_KILLER); sudo rm -fr /var/run/march/; (echo "Starting docker march service..."; sudo $(SONIC_NATIVE_DOCKERD_FOR_MUTLIARCH) &) &>/dev/null ; sleep 2; sudo $(SONIC_USERFACL_DOCKERD_FOR_MUTLIARCH);)
+    DOCKER_SERVICE_MULTIARCH_CHECK := ($(DOCKER_SERVICE_SAFE_KILLER); sudo rm -fr /var/run/march/; (echo "Starting docker march service..."; sudo $(SONIC_NATIVE_DOCKERD_FOR_MULTIARCH) &) &>/dev/null ; sleep 2; sudo $(SONIC_USERFACL_DOCKERD_FOR_MULTIARCH);)
 
     # Docker service to load the compiled dockers-*.gz
     # docker 19.0 version above has path/length restriction, so replaced it with soft link in /tmp/
@@ -362,7 +419,7 @@ endif
 
 endif
 
-SPLIT_LOG = | tee
+SPLIT_LOG = 2>&1 | tee
 
 DOCKER_BASE_LOG = $(SLAVE_DIR)/$(SLAVE_BASE_IMAGE)_$(SLAVE_BASE_TAG).log
 DOCKER_LOG = $(SLAVE_DIR)/$(SLAVE_IMAGE)_$(SLAVE_TAG).log
@@ -373,10 +430,13 @@ DOCKER_SLAVE_BASE_BUILD = docker build --no-cache \
 		    --build-arg http_proxy=$(http_proxy) \
 		    --build-arg https_proxy=$(https_proxy) \
 		    --build-arg no_proxy=$(no_proxy) \
-		    $(SLAVE_DIR) $(SPLIT_LOG) $(DOCKER_BASE_LOG)
+		    --build-arg SONIC_VERSION_CACHE=$(SONIC_VERSION_CACHE) \
+		    --build-arg SONIC_VERSION_CONTROL_COMPONENTS=$(SONIC_VERSION_CONTROL_COMPONENTS) \
+		    $(SLAVE_DIR) \
+		    $(SPLIT_LOG) $(DOCKER_BASE_LOG)
 
 DOCKER_BASE_PULL = docker pull \
-			$(REGISTRY_SERVER):$(REGISTRY_PORT)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG)
+			$(REGISTRY_SERVER):$(REGISTRY_PORT)$(REGISTRY_SERVER_PATH)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG)
 
 DOCKER_USER_BUILD = docker build --no-cache \
 	       --build-arg user=$(USER) \
@@ -402,7 +462,7 @@ DOCKER_SLAVE_BASE_PULL_REGISTRY = \
 		$(DOCKER_BASE_PULL); \
 	} && \
 	{ \
-		docker tag $(REGISTRY_SERVER):$(REGISTRY_PORT)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) && \
+		docker tag $(REGISTRY_SERVER):$(REGISTRY_PORT)$(REGISTRY_SERVER_PATH)/$(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) $(SLAVE_BASE_IMAGE):$(SLAVE_BASE_TAG) && \
 		$(COLLECT_DOCKER); \
 	}\
 
@@ -460,6 +520,7 @@ SONIC_BUILD_INSTRUCTION :=  $(MAKE) \
                            MDEBUG=$(MDEBUG) \
                            PASSWORD=$(PASSWORD) \
                            USERNAME=$(USERNAME) \
+			   CHANGE_DEFAULT_PASSWORD=$(CHANGE_DEFAULT_PASSWORD) \
                            SONIC_BUILD_JOBS=$(SONIC_BUILD_JOBS) \
                            SONIC_USE_DOCKER_BUILDKIT=$(SONIC_USE_DOCKER_BUILDKIT) \
                            VS_PREPARE_MEM=$(VS_PREPARE_MEM) \
@@ -480,10 +541,16 @@ SONIC_BUILD_INSTRUCTION :=  $(MAKE) \
                            SONIC_INCLUDE_RESTAPI=$(INCLUDE_RESTAPI) \
                            SONIC_INCLUDE_MUX=$(INCLUDE_MUX) \
                            ENABLE_TRANSLIB_WRITE=$(ENABLE_TRANSLIB_WRITE) \
+                           ENABLE_NATIVE_WRITE=$(ENABLE_NATIVE_WRITE) \
                            EXTRA_DOCKER_TARGETS=$(EXTRA_DOCKER_TARGETS) \
                            BUILD_LOG_TIMESTAMP=$(BUILD_LOG_TIMESTAMP) \
                            SONIC_ENABLE_IMAGE_SIGNATURE=$(ENABLE_IMAGE_SIGNATURE) \
                            SONIC_ENABLE_SECUREBOOT_SIGNATURE=$(SONIC_ENABLE_SECUREBOOT_SIGNATURE) \
+                           SECURE_UPGRADE_MODE=$(SECURE_UPGRADE_MODE) \
+                           SECURE_UPGRADE_DEV_SIGNING_KEY=$(SECURE_UPGRADE_DEV_SIGNING_KEY) \
+                           SECURE_UPGRADE_SIGNING_CERT=$(SECURE_UPGRADE_SIGNING_CERT) \
+                           SECURE_UPGRADE_PROD_SIGNING_TOOL=$(SECURE_UPGRADE_PROD_SIGNING_TOOL) \
+                           SECURE_UPGRADE_PROD_TOOL_ARGS=$(SECURE_UPGRADE_PROD_TOOL_ARGS) \
                            SONIC_DEFAULT_CONTAINER_REGISTRY=$(DEFAULT_CONTAINER_REGISTRY) \
                            ENABLE_HOST_SERVICE_ON_START=$(ENABLE_HOST_SERVICE_ON_START) \
                            SLAVE_DIR=$(SLAVE_DIR) \
@@ -497,14 +564,16 @@ SONIC_BUILD_INSTRUCTION :=  $(MAKE) \
                            SONIC_SLAVE_DOCKER_DRIVER=$(SONIC_SLAVE_DOCKER_DRIVER) \
                            MIRROR_URLS=$(MIRROR_URLS) \
                            MIRROR_SECURITY_URLS=$(MIRROR_SECURITY_URLS) \
+                           GZ_COMPRESS_PROGRAM=$(GZ_COMPRESS_PROGRAM) \
+                           MIRROR_SNAPSHOT=$(MIRROR_SNAPSHOT) \
+                           SONIC_VERSION_CONTROL_COMPONENTS=$(SONIC_VERSION_CONTROL_COMPONENTS) \
+                           SONIC_OS_VERSION=$(SONIC_OS_VERSION) \
                            $(SONIC_OVERRIDE_BUILD_VARS)
 
 .PHONY: sonic-slave-build sonic-slave-bash init reset
 
 
-ifeq ($(filter clean,$(MAKECMDGOALS)),)
-COLLECT_BUILD_VERSION = { DBGOPT='$(DBGOPT)' scripts/collect_build_version_files.sh \$$?; }
-endif
+COLLECT_BUILD_VERSION = { scripts/collect_build_version_files.sh \$$?; }
 
 ifdef SOURCE_FOLDER
 	DOCKER_RUN += -v $(SOURCE_FOLDER):/var/$(USER)/src
@@ -519,6 +588,8 @@ endif
 
 export MIRROR_URLS
 export MIRROR_SECURITY_URLS
+export MIRROR_SNAPSHOT
+export SONIC_VERSION_CONTROL_COMPONENTS
 
 %:: | sonic-build-hooks
 ifneq ($(filter y, $(MULTIARCH_QEMU_ENVIRON) $(CROSS_BUILD_ENVIRON)),)
@@ -545,8 +616,6 @@ sonic-build-hooks:
 	$(Q)pushd src/sonic-build-hooks; TRUSTED_GPG_URLS=$(TRUSTED_GPG_URLS) $(MAKE) all; popd
 	$(Q)mkdir -p $(SLAVE_DIR)/buildinfo
 	$(Q)cp src/sonic-build-hooks/buildinfo/sonic-build-hooks* $(SLAVE_DIR)/buildinfo
-	$(Q)if [ "$(MULTIARCH_QEMU_ENVIRON)" == y ]; then scripts/build_mirror_config.sh $(SLAVE_DIR) amd64 $(BLDENV); fi
-	$(Q)scripts/build_mirror_config.sh $(SLAVE_DIR) $(CONFIGURED_ARCH) $(BLDENV)
 
 sonic-slave-base-build : | sonic-build-hooks
 ifeq ($(MULTIARCH_QEMU_ENVIRON), y)
@@ -574,23 +643,28 @@ init :
 
 .ONESHELL : reset
 reset :
-	$(Q)echo && echo -n "Warning! All local changes will be lost. Proceed? [y/N]: "
-	$(Q)read ans && (
-	    if [ $$ans == y ]; then
-	        echo "Resetting local repository. Please wait...";
-	        sudo rm -rf fsroot*;
-	        if [ "$(MULTIARCH_QEMU_ENVIRON)" == y ] && [[ "$(CONFIGURED_ARCH)" == "armhf" || "$(CONFIGURED_ARCH)" ==  "arm64" ]]; then
-	            echo "Stopping march $(CONFIGURED_ARCH) docker"
-	            sudo kill -9 `sudo cat /var/run/march/docker.pid` || true
-	            sudo rm -f /var/run/march/docker.pid || true
-	        fi
-	        git clean -xfdf;
-	        git reset --hard;
-	        git submodule foreach --recursive 'git clean -xfdf || true';
-	        git submodule foreach --recursive 'git reset --hard || true';
-	        git submodule foreach --recursive 'git remote update || true';
-	        git submodule update --init --recursive;
-	        echo "Reset complete!";
-	    else
-	        echo "Reset aborted";
-	    fi )
+	$(Q)echo && (
+	if [ -z "$(UNATTENDED)" ]; then
+	   echo -n "Warning! All local changes will be lost. Proceed? [y/N]: "
+	   @read ans
+	else
+	   ans=y
+	fi
+	if [ $$ans == y ]; then
+	    echo "Resetting local repository. Please wait...";
+	    sudo rm -rf fsroot*;
+	    if [ "$(MULTIARCH_QEMU_ENVIRON)" == y ] && [[ "$(CONFIGURED_ARCH)" == "armhf" || "$(CONFIGURED_ARCH)" ==  "arm64" ]]; then
+	        echo "Stopping march $(CONFIGURED_ARCH) docker"
+	        sudo kill -9 `sudo cat /var/run/march/docker.pid` || true
+	        sudo rm -f /var/run/march/docker.pid || true
+	    fi
+	    git clean -xfdf;
+	    git reset --hard;
+	    git submodule foreach --recursive 'git clean -xfdf || true';
+	    git submodule foreach --recursive 'git reset --hard || true';
+	    git submodule foreach --recursive 'git remote update || true';
+	    git submodule update --init --recursive;
+	    echo "Reset complete!";
+	else
+	    echo "Reset aborted";
+	fi )

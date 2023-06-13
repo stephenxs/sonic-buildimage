@@ -128,7 +128,7 @@ class BGPPeerMgrBase(Manager):
         if self.check_deployment_id:
             deps.append(("CONFIG_DB", swsscommon.CFG_DEVICE_METADATA_TABLE_NAME, "localhost/deployment_id"))
 
-        if self.peer_type == 'internal':    
+        if self.peer_type == 'internal':
             deps.append(("CONFIG_DB", swsscommon.CFG_LOOPBACK_INTERFACE_TABLE_NAME, "Loopback4096"))
 
         super(BGPPeerMgrBase, self).__init__(
@@ -304,10 +304,11 @@ class BGPPeerMgrBase(Manager):
         :return: True if no errors, False if there are errors
         """
         bgp_asn = self.directory.get_slot("CONFIG_DB", swsscommon.CFG_DEVICE_METADATA_TABLE_NAME)["localhost"]["bgp_asn"]
+        enable_bgp_suppress_fib_pending_cmd = 'bgp suppress-fib-pending'
         if vrf == 'default':
-            cmd = ('router bgp %s\n' % bgp_asn) + cmd
+            cmd = ('router bgp %s\n %s\n' % (bgp_asn, enable_bgp_suppress_fib_pending_cmd)) + cmd
         else:
-            cmd = ('router bgp %s vrf %s\n' % (bgp_asn, vrf)) + cmd
+            cmd = ('router bgp %s vrf %s\n %s\n' % (bgp_asn, vrf, enable_bgp_suppress_fib_pending_cmd)) + cmd
         self.cfg_mgr.push(cmd)
         return True
 

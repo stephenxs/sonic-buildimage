@@ -31,6 +31,9 @@
         "eStrKey" : "When",
         "eStr": ["IP_TYPE"]
     },
+    "ACL_RULE_WITHOUT_IP_TYPE": {
+        "desc": "Configure ACL_RULE without IP_TYPE."
+    },
     "ACL_RULE_ARP_TYPE_DST_IPV6_MISMATCH": {
         "desc": "Configure IP_TYPE as ARP and DST_IPV6 in ACL_RULE.",
         "eStrKey" : "When",
@@ -132,5 +135,16 @@
     },
     "ACL_RULE_VALID_TCP_FLAGS": {
         "desc": "Configure ACL_RULE with valid TCP_FLAGS."
+    },
+    "ACL_RULE_WRONG_BTH_OPCODE": {
+        "desc": "Configure invalid BTH_OPCODE in decimal format.",
+        "eStrKey" : "Pattern"
+    },
+    "ACL_RULE_WRONG_AETH_SYNDROME": {
+        "desc": "Configure invalid AETH_SYNDROME in decimal format.",
+        "eStrKey" : "Pattern"
+    },
+    "ACL_TABLE_L3V4V6_TABLE_TYPE": {
+        "desc": "ACL_TABLE Validate type L3V4V6."
     }
 }

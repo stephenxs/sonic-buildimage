@@ -60,7 +60,8 @@ function check_warm_boot()
 
 function check_fast_boot()
 {
-    if [[ $($SONIC_DB_CLI STATE_DB GET "FAST_REBOOT|system") == "1" ]]; then
+    SYSTEM_FAST_REBOOT=`sonic-db-cli STATE_DB hget "FAST_RESTART_ENABLE_TABLE|system" enable`
+    if [[ x"${SYSTEM_FAST_REBOOT}" == x"true" ]]; then
         FAST_BOOT="true"
     else
         FAST_BOOT="false"
@@ -274,6 +275,8 @@ stop() {
     if [[ x"$WARM_BOOT" != x"true" ]] && [[ x"$FAST_BOOT" != x"true" ]]; then
         /usr/bin/${SERVICE}.sh stop $DEV
         debug "Stopped ${SERVICE}$DEV service..."
+        $SONIC_DB_CLI APPL_DB DEL PORT_TABLE:PortInitDone
+        debug "Cleared PortInitDone from APPL_DB..."
     else
         debug "Killing Docker swss..."
         /usr/bin/docker kill swss &> /dev/null || debug "Docker swss is not running ($?) ..."
@@ -284,8 +287,8 @@ stop() {
     # encountered error, e.g. syncd crashed. And swss needs to
     # be restarted.
     if [[ x"$FAST_BOOT" != x"true" ]]; then
-        debug "Clearing FAST_REBOOT flag..."
-        clean_up_tables STATE_DB "'FAST_REBOOT*'"
+        debug "Clearing FAST_RESTART_ENABLE_TABLE flag..."
+        sonic-db-cli STATE_DB hset "FAST_RESTART_ENABLE_TABLE|system" "enable" "false"
     fi
     # Unlock has to happen before reaching out to peer service
     unlock_service_state_change
@@ -304,7 +307,7 @@ function check_peer_gbsyncd()
 
 function check_macsec()
 {
-    MACSEC_STATE=`show feature status | grep macsec | awk '{print $2}'`
+    MACSEC_STATE=`$SONIC_DB_CLI CONFIG_DB hget 'FEATURE|macsec' state`
 
     if [[ ${MACSEC_STATE} == 'enabled' ]]; then
         if [ "$DEV" ]; then
@@ -326,10 +329,26 @@ function check_ports_present()
     return 1
 }
 
+function check_service_exists()
+{
+    systemctl list-units --full -all 2>/dev/null | grep -Fq $1
+    if [[ $? -eq 0 ]]; then
+        echo true
+        return
+    else
+        echo false
+        return
+    fi
+}
+
 # DEPENDENT initially contains namespace independent services
 # namespace specific services are added later in this script.
-DEPENDENT="radv"
+DEPENDENT=""
 MULTI_INST_DEPENDENT=""
+
+if [[ $(check_service_exists radv) == "true" ]]; then
+    DEPENDENT="$DEPENDENT radv"
+fi
 
 if [ "$DEV" ]; then
     NET_NS="$NAMESPACE_PREFIX$DEV" #name of the network namespace
@@ -350,7 +369,7 @@ check_macsec
 check_ports_present
 PORTS_PRESENT=$?
 
-if [[ $PORTS_PRESENT == 0 ]]; then
+if [[ $PORTS_PRESENT == 0 ]] && [[ $(check_service_exists teamd) == "true" ]]; then
     MULTI_INST_DEPENDENT="teamd"
 fi
 

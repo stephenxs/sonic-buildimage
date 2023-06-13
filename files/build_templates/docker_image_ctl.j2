@@ -34,16 +34,27 @@ function updateSyslogConf()
     # Also update the container name
     if [[ ($NUM_ASIC -gt 1) ]]; then
         TARGET_IP=$(docker network inspect bridge --format={{ "'{{(index .IPAM.Config 0).Gateway}}'" }})
-        CONTAINER_NAME="$DOCKERNAME"
-        TMP_FILE="/tmp/rsyslog.$CONTAINER_NAME.conf"
-        {%- if docker_container_name == "database" %}
-        python -c "import jinja2, os; paths=['/usr/share/sonic/templates']; loader = jinja2.FileSystemLoader(paths); env = jinja2.Environment(loader=loader, trim_blocks=True); template_file='/usr/share/sonic/templates/rsyslog-container.conf.j2'; template = env.get_template(os.path.basename(template_file)); data=template.render({\"target_ip\":\"$TARGET_IP\",\"container_name\":\"$CONTAINER_NAME\"}); print(data)" > $TMP_FILE
-        {%- else %}
-        sonic-cfggen -t /usr/share/sonic/templates/rsyslog-container.conf.j2 -a "{\"target_ip\": \"$TARGET_IP\", \"container_name\": \"$CONTAINER_NAME\" }"  > $TMP_FILE
-        {%- endif %}
-        docker cp $TMP_FILE ${DOCKERNAME}:/etc/rsyslog.conf
-        rm -rf $TMP_FILE
+    else
+        if [ "$CONTAINER_EXISTS" = "yes" ]; then
+            # database configuration has been synced to /etc/rsyslog.conf
+            # no need generate it to save boot time
+            return
+        fi
+        TARGET_IP="127.0.0.1"
     fi
+    CONTAINER_NAME="$DOCKERNAME"
+    TMP_FILE="/tmp/rsyslog.$CONTAINER_NAME.conf"
+    {%- if docker_container_name == "database" %}
+    python -c "import jinja2, os; paths=['/usr/share/sonic/templates']; loader = jinja2.FileSystemLoader(paths); env = jinja2.Environment(loader=loader, trim_blocks=True); template_file='/usr/share/sonic/templates/rsyslog-container.conf.j2'; template = env.get_template(os.path.basename(template_file)); data=template.render({\"target_ip\":\"$TARGET_IP\",\"container_name\":\"$CONTAINER_NAME\"}); print(data)" > $TMP_FILE
+    {%- else %}
+    sonic-cfggen -d -t /usr/share/sonic/templates/rsyslog-container.conf.j2 -a "{\"target_ip\": \"$TARGET_IP\", \"container_name\": \"$CONTAINER_NAME\" }"  > $TMP_FILE
+    if [ $? -ne 0 ]; then
+      echo "Error: Execute sonic-cfggen -d failed. Execute without '-d'."
+      sonic-cfggen -t /usr/share/sonic/templates/rsyslog-container.conf.j2 -a "{\"target_ip\": \"$TARGET_IP\", \"container_name\": \"$CONTAINER_NAME\" }"  > $TMP_FILE
+    fi
+    {%- endif %}
+    docker cp $TMP_FILE ${DOCKERNAME}:/etc/rsyslog.conf
+    rm -rf $TMP_FILE
 }
 function ebtables_config()
 {
@@ -144,11 +155,13 @@ function waitForAllInstanceDatabaseConfigJsonFilesReady()
                     fi
 		done
             done
-	fi
+        fi
+        # Delay a second to allow all instance database_config.json files to be completely generated and fully accessible.
+        # This delay is needed to make sure that the database_config.json files are correctly rendered from j2 template 
+        # files ( renderning takes some time )
+        sleep 1 
     fi
 }
-# delay a second to allow the file to be fully accessible
-sleep 1
 {%- endif %}
 
 function postStartAction()
@@ -214,6 +227,10 @@ function postStartAction()
         # then we catch python exception of file not valid
         # that comes to syslog which is unwanted so wait till database
         # config is ready and then ping
+	# sonic-db-cli try to initialize the global database. If in multiasic platform, inital global
+        # database will try to access to all other instance database-config.json. If other instance
+        # database-config.json files are not ready yet, it will generate the sonic-db-cli core files.
+	waitForAllInstanceDatabaseConfigJsonFilesReady
         until [[ ($(docker exec -i database$DEV pgrep -x -c supervisord) -gt 0) && ($($SONIC_DB_CLI PING | grep -c PONG) -gt 0) &&
                  ($(docker exec -i database$DEV sonic-db-cli PING | grep -c PONG) -gt 0) ]]; do
           sleep 1;
@@ -223,11 +240,7 @@ function postStartAction()
             mv $WARM_DIR/dump.rdb $WARM_DIR/dump.rdb.old
         else
             # If there is a config_db.json dump file, load it.
-            if [ -r /etc/sonic/config_db$DEV.json ]; then
-
-		# For multi-asic, all /var/run/redis$DEV/sonic-db/database_config.json need to ready
-                # for loading config with --write-to-db
-		waitForAllInstanceDatabaseConfigJsonFilesReady
+            if [ -r /etc/sonic/config_db$DEV.json ]; then		
 
                 if [ -r /etc/sonic/init_cfg.json ]; then
                     $SONIC_CFGGEN -j /etc/sonic/init_cfg.json -j /etc/sonic/config_db$DEV.json --write-to-db
@@ -308,6 +321,29 @@ start() {
         source $PLATFORM_ENV_CONF
     fi
 
+    {%- if sonic_asic_platform == "broadcom" %}
+    {%- if docker_container_name == "syncd" %}
+    # Set the SYNCD_SHM_SIZE if this variable not defined    
+    BRCM_PLATFORM_COMMON_DIR=/usr/share/sonic/device/x86_64-broadcom_common
+    SYNCD_SHM_INI=$BRCM_PLATFORM_COMMON_DIR/syncd_shm.ini
+
+    readline=$(grep '0x14e4' /proc/linux-kernel-bde)
+    bcm_chip_id=${readline#*0x14e4:0x}
+    bcm_chip_id=${bcm_chip_id::3}
+
+    if [ -z "$SYNCD_SHM_SIZE" ]; then
+        if [ -z "$bcm_chip_id" ]; then
+            echo "Cannot get Broadcom Chip Id. Skip set SYNCD_SHM_SIZE."
+        elif [ -f "$SYNCD_SHM_INI" ] && [ "$(grep -m1 "^${bcm_chip_id}=" $SYNCD_SHM_INI)" ]; then
+                SYNCD_SHM_SIZE=`grep -m1 "^${bcm_chip_id}=" $SYNCD_SHM_INI | awk -F= '{print $2}'`
+        else
+            echo "Cannot get SYNCD_SHM_SIZE for chip: [${bcm_chip_id}] in $SYNCD_SHM_INI. Skip set SYNCD_SHM_SIZE."
+        fi
+
+    fi
+    {%- endif %}
+    {%- endif %}
+
     {%- if docker_container_name == "gbsyncd" %}
     GBSYNCD_CONF=/usr/share/sonic/device/$PLATFORM/gbsyncd.ini
     GBSYNCD_PLATFORM=gbsyncd-vs
@@ -342,6 +378,7 @@ start() {
         DOCKERMOUNT=`getMountPoint "$DOCKERCHECK"`
         {%- endif %}
         if [ x"$DOCKERMOUNT" == x"$MOUNTPATH" ]; then
+            CONTAINER_EXISTS="yes"
             preStartAction
             {%- if docker_container_name == "database" %}
             echo "Starting existing ${DOCKERNAME} container"
@@ -383,13 +420,28 @@ start() {
     {%- if docker_container_name == "swss" %}
     # Generate the asic_table.json and peripheral_table.json
     if [ ! -f /etc/sonic/asic_table.json ] && [ -f /usr/share/sonic/templates/asic_table.j2 ]; then
-        sonic-cfggen -d -t /usr/share/sonic/templates/asic_table.j2 > /etc/sonic/asic_table.json
+        sonic-cfggen -d -t /usr/share/sonic/templates/asic_table.j2 > /etc/sonic/asic_table.json 2> errorlog.txt
+        if [[ $? -ne 0 ]] ; then
+            echo "sonic-cfggen failed to render asic_table.json"
+            echo "$(cat errorlog.txt)"
+            sonic-cfggen -a '{"DEVICE_METADATA":{"localhost":{"platform":"'$PLATFORM'"}}}' -t /usr/share/sonic/templates/asic_table.j2 > /etc/sonic/asic_table.json
+        fi
     fi
     if [ ! -f /etc/sonic/peripheral_table.json ] && [ -f /usr/share/sonic/device/$PLATFORM/port_peripheral_config.j2 ]; then
-        sonic-cfggen -d -t /usr/share/sonic/device/$PLATFORM/port_peripheral_config.j2 > /etc/sonic/peripheral_table.json
+        sonic-cfggen -d -t /usr/share/sonic/device/$PLATFORM/port_peripheral_config.j2 > /etc/sonic/peripheral_table.json 2> errorlog.txt
+        if [[ $? -ne 0 ]] ; then
+            echo "sonic-cfggen failed to render peripheral_table.json"
+            echo "$(cat errorlog.txt)"
+            sonic-cfggen -a '{"DEVICE_METADATA":{"localhost":{"platform":"'$PLATFORM'"}}}' -t /usr/share/sonic/device/$PLATFORM/port_peripheral_config.j2 > /etc/sonic/peripheral_table.json
+        fi
     fi
     if [ ! -f /etc/sonic/zero_profiles.json ] && [ -f /usr/share/sonic/templates/zero_profiles.j2 ]; then
-        sonic-cfggen -d -t /usr/share/sonic/device/$PLATFORM/zero_profiles.j2 > /etc/sonic/zero_profiles.json
+        sonic-cfggen -d -t /usr/share/sonic/device/$PLATFORM/zero_profiles.j2 > /etc/sonic/zero_profiles.json 2> errorlog.txt
+        if [[ $? -ne 0 ]] ; then
+            echo "sonic-cfggen failed to render zero_profiles.json"
+            echo "$(cat errorlog.txt)"
+            sonic-cfggen -t /usr/share/sonic/device/$PLATFORM/zero_profiles.j2 > /etc/sonic/zero_profiles.json
+        fi
     fi
 
     {%- if enable_asan == "y" %}
@@ -495,6 +547,7 @@ start() {
         -v mlnx_sdk_socket:/var/run/sx_sdk \
         -v mlnx_sdk_ready:/tmp \
         -v /dev/shm:/dev/shm:rw \
+        -v /var/log/sai_failure_dump:/var/log/sai_failure_dump:rw \
         -e SX_API_SOCKET_FILE=/var/run/sx_sdk/sx_api.sock \
 {%- elif docker_container_name == "pmon" %}
         -v /var/run/hw-management:/var/run/hw-management:rw \
@@ -536,6 +589,7 @@ start() {
 {%- endif %}
         $REDIS_MNT \
         -v /usr/share/sonic/device/$PLATFORM:/usr/share/sonic/platform:ro \
+        -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro \
 {%- if sonic_asic_platform != "mellanox" %}
 {%- if mount_default_tmpfs|default("n") == "y" %}
         --tmpfs /tmp \
@@ -547,6 +601,7 @@ start() {
         --env "NAMESPACE_ID"="$DEV" \
         --env "NAMESPACE_PREFIX"="$NAMESPACE_PREFIX" \
         --env "NAMESPACE_COUNT"=$NUM_ASIC \
+        --env "CONTAINER_NAME"=$DOCKERNAME \
         --name=$DOCKERNAME \
 {%- if docker_container_name == "gbsyncd" %}
         -v /var/run/docker-syncd$DEV:/var/run/sswsyncd \
@@ -617,6 +672,7 @@ fi
 {%- endif %}
 NAMESPACE_PREFIX="asic"
 DOCKERNAME=$DOCKERNAME$DEV
+CONTAINER_EXISTS="no"
 if [ "$DEV" ]; then
     NET_NS="$NAMESPACE_PREFIX$DEV" #name of the network namespace
 
