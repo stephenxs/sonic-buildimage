@@ -70,6 +70,8 @@ COPY ["docker-init.sh", "orchagent.sh", "swssconfig.sh", "/usr/bin/"]
 COPY ["supervisord.conf", "/etc/supervisor/conf.d/"]
 COPY ["files/supervisor-proc-exit-listener", "/usr/bin"]
 COPY ["critical_processes", "/etc/supervisor/"]
+COPY ["monitor_pfc_counters.py", "/usr/bin"]
+COPY ["monitor_pfc_counters.conf", "/etc/supervisor/conf.d/"]
 
 ## Copy all Jinja2 template files into the templates folder
 COPY ["*.j2", "/usr/share/sonic/templates/"]
