@@ -3,7 +3,19 @@
 import threading
 import redis
 import time
+import syslog
+import logging 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
+logger.addHandler(logging.NullHandler())
+
+SYSLOG_IDENTIFIER = 'monitor_pfc_counters'
+
+def log_notice(msg):
+    syslog.openlog(SYSLOG_IDENTIFIER)
+    syslog.syslog(syslog.LOG_NOTICE, msg)
+    syslog.closelog()
 
 fetch_counter_script = \
 '''
@@ -86,6 +98,6 @@ while True:
                             history_counters.append(counter_info[2])
 
                 finally:
-                    print('Historical counters {}'.format(history_counters))
+                    log_notice('Historical counters {}'.format(history_counters))
 
     time.sleep(0.2)
