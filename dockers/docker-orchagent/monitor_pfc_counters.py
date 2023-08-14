@@ -106,7 +106,7 @@ ps = r.pubsub()
 ps.subscribe('PFC_WD_ACTION')
 
 while True:
-    counters.append((r.evalsha(fetch_port_counter_sha, 0), r.evalsha(fetch_queue_counter_sha, 0)))
+    counters.append((r.evalsha(fetch_port_counter_sha, 0), r.evalsha(fetch_queue_counter_sha, 0), time.ctime(), time.time()))
     if len(counters) > 50:
         counters.pop(0)
     notification = ps.get_message()
@@ -121,18 +121,25 @@ while True:
                     queueoid = items[0][1:-1]
                     portoid = qid2pid[queueoid]
                     for all_counters in counters:
-                        allport_counters, allqueue_counters = all_counters
+                        allport_counters, allqueue_counters, wallclock, timestamp = all_counters
                         counter_info = fetch_counter_for_port(allport_counters, portoid)
                         if counter_info:
                             if len(history_port_counters) == 0:
+                                # Insert "start" timestamp
+                                history_port_counters.append(wallclock)
                                 history_port_counters.append(counter_info[0])
-                                history_port_counters.append(counter_info[1])
-                            history_port_counters.append(counter_info[2])
+                                history_port_counters.append((timestamp, counter_info[1]))
+                            history_port_counters.append((timestamp, counter_info[2]))
                         counter_info = fetch_counter_for_queue(allqueue_counters, queueoid)
                         if counter_info:
                             if len(history_queue_counters) == 0:
-                                history_queue_counters.append(counter_info[0])
-                            history_queue_counters.append(counter_info[1])
+                                # Insert "start" wallclock
+                                history_queue_counters.append(wallclock)
+                                history_queue_counters.append((timestamp, counter_info[0]))
+                            history_queue_counters.append((timestamp, counter_info[1]))
+                    # Insert "end" wallclock
+                    history_port_counters.append(wallclock)
+                    history_queue_counters.append(wallclock)
                 finally:
                     log_notice('Historical port counters {}'.format(history_port_counters))
                     log_notice('Historical queue counters {}'.format(history_queue_counters))
