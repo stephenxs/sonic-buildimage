@@ -148,5 +148,34 @@ module sonic-events-swss {
 
             uses evtcmn:sonic-events-cmn;
         }
+
+        container asic-sdk-health-event {
+            evtcmn:ALARM_SEVERITY_MAJOR;
+            description
+                "Declares an event for ASIC/SDK health event.";
+            leaf asicid {
+                type uint8;
+            }
+            leaf severity {
+                type enumeration {
+                    enum fatal;
+                    enum warning;
+                    enum notice;
+                }
+            }
+            leaf category {
+                type enumeration {
+                    enum software;
+                    enum firmware;
+                    enum cpu_hw;
+                    enum asic_hw;
+                }
+            }
+            leaf description {
+                type string;
+            }
+
+            uses evtcmn:sonic-events-cmn;
+        }
     }
 }
