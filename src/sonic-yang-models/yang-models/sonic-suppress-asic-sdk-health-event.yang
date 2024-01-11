@@ -39,6 +39,10 @@ module sonic-suppress-asic-sdk-health-event {
                     description "Severity of the ASIC/SDK health event to suppress";
                 }
 
+                leaf max_events {
+                    type uint32;
+                }
+
                 leaf-list categories {
                     type enumeration {
                         enum software;

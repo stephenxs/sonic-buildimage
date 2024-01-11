@@ -392,7 +392,8 @@ ASIC/SDK health event related configuration is defined in **SUPPRESS_ASIC_SDK_HE
     "notice": {
         "categories": [
             "asic_hw"
-        ]
+        ],
+        "max_events": "1000"
     },
     "warning": {
         "categories": [
