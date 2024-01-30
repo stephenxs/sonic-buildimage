@@ -61,7 +61,7 @@ elif [ "$platform" == "barefoot" ]; then
 elif [ "$platform" == "vs" ]; then
     ORCHAGENT_ARGS+="-m $MAC_ADDRESS"
 elif [ "$platform" == "mellanox" ]; then
-    ORCHAGENT_ARGS+=""
+    ORCHAGENT_ARGS+="-c asic_db"
 elif [ "$platform" == "innovium" ]; then
     ORCHAGENT_ARGS+="-m $MAC_ADDRESS"
 elif [ "$platform" == "pensando" ]; then
