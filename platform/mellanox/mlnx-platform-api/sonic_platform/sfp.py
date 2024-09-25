@@ -550,6 +550,8 @@ class SFP(NvidiaSFPCommon):
                 with open(page, mode='rb', buffering=0) as f:
                     f.seek(page_offset)
                     content = f.read(num_bytes)
+                    if ctypes.get_errno() != 0:
+                        raise IOError(f'errno = {os.strerror(ctypes.get_errno())}')
                     if not result:
                         result = content
                     else:
@@ -563,15 +565,13 @@ class SFP(NvidiaSFPCommon):
                         else:
                             # Indicate read finished
                             num_bytes = 0
-                    if ctypes.get_errno() != 0:
-                        raise IOError(f'errno = {os.strerror(ctypes.get_errno())}')
                     logger.log_debug(f'read EEPROM sfp={self.sdk_index}, page={page}, page_offset={page_offset}, '\
                         f'size={read_length}, data={content}')
             except (OSError, IOError) as e:
                 if retry < max_retry:
                     retry = retry + 1
                     logger.log_warning(f'reading EEPROM sfp={self.sdk_index}, page={page}, page_offset={page_offset}, '\
-                                       f'size={read_length}, data={content} did not succeed, retry {retry}')
+                                       f'size={read_length} did not succeed, retry {retry}')
                     time.sleep(0.05)
                     continue
                 if log_on_error:
@@ -619,16 +619,16 @@ class SFP(NvidiaSFPCommon):
                             offset += ret
                         else:
                             raise IOError(f'write return code = {ret}')
-                    num_bytes -= ret
                     if ctypes.get_errno() != 0:
                         raise IOError(f'errno = {os.strerror(ctypes.get_errno())}')
+                    num_bytes -= ret
                     logger.log_debug(f'write EEPROM sfp={self.sdk_index}, page={page}, page_offset={page_offset}, '\
                         f'size={ret}, left={num_bytes}, data={written_buffer}')
             except (OSError, IOError) as e:
                 if retry < max_retry:
                     retry = retry + 1
                     logger.log_debug(f'writing EEPROM sfp={self.sdk_index}, page={page}, page_offset={page_offset}, '\
-                                     f'size={ret}, left={num_bytes}, data={written_buffer} did not succeed, retry {retry}')
+                                     f'size={ret}, left={num_bytes} did not succeed, retry {retry}')
                     time.sleep(0.05)
                     continue
                 data = ''.join('{:02x}'.format(x) for x in write_buffer)
