@@ -147,10 +147,6 @@
                 "DEBUG_COUNTER": {
                     "FLEX_COUNTER_STATUS": "enable"
                 },
-                "ENI": {
-                    "FLEX_COUNTER_STATUS": "enable",
-                    "POLL_INTERVAL": 10000
-                },
                 "PFCWD": {
                     "FLEX_COUNTER_STATUS": "enable"
                 },
@@ -222,10 +218,6 @@
                 },
                 "DEBUG_COUNTER": {
                     "FLEX_COUNTER_STATUS": "enable"
-                },
-                "ENI": {
-                    "FLEX_COUNTER_STATUS": "enable",
-                    "POLL_INTERVAL": 10000
                 },
                 "PFCWD": {
                     "FLEX_COUNTER_STATUS": "enable"
