@@ -361,12 +361,18 @@
 {% endif %}
 {% endif %}
 {% if port not in PORT_DPC %}
-{% if port in port_names_list_extra_queues %}
+{% if generate_pfc_per_sku is defined %}
+            "pfc_enable"      : {{- generate_pfc_per_sku() }},
+{% elif port in port_names_list_extra_queues %}
             "pfc_enable"      : "2,3,4,6",
 {% else %}
             "pfc_enable"      : "3,4",
 {% endif %}
+{% if generate_pfcwd_per_sku is defined %}
+            "pfcwd_sw_enable" : {{- generate_pfcwd_per_sku() }},
+{% else %}
             "pfcwd_sw_enable" : "3,4",
+{% endif %}
 {% endif %}
 {% if port not in PORT_DPC %}
             "tc_to_pg_map"    : "AZURE",
