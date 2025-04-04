@@ -124,13 +124,16 @@
             "scheduler": "scheduler.4"
         },
         "{{ port }}|1": {
-            "scheduler": "scheduler.8"
+            "scheduler": "scheduler.8",
+            "wred_profile": "AZURE"
         },
         "{{ port }}|2": {
-            "scheduler": "scheduler.18"
+            "scheduler": "scheduler.18",
+            "wred_profile": "AZURE"
         },
         "{{ port }}|3": {
-            "scheduler": "scheduler.22"
+            "scheduler": "scheduler.22",
+            "wred_profile": "AZURE"
         },
         "{{ port }}|4": {
             "scheduler": "scheduler.22"
@@ -149,20 +152,20 @@
 
 {%- macro generate_wred_profiles() %}
     "WRED_PROFILE": {
-        "AZURE_LOSSLESS" : {
+        "AZURE" : {
             "wred_green_enable"      : "true",
             "wred_yellow_enable"     : "true",
             "wred_red_enable"        : "true",
             "ecn"                    : "ecn_all",
-            "green_max_threshold"    : "10000000",
-            "green_min_threshold"    : "2000000",
-            "yellow_max_threshold"   : "10000000",
-            "yellow_min_threshold"   : "2000000",
-            "red_max_threshold"      : "10000000",
-            "red_min_threshold"      : "2000000",
-            "green_drop_probability" : "5",
-            "yellow_drop_probability": "5",
-            "red_drop_probability"   : "5"
+            "green_max_threshold"    : "282624",
+            "green_min_threshold"    : "166912",
+            "yellow_max_threshold"   : "282624",
+            "yellow_min_threshold"   : "166912",
+            "red_max_threshold"      : "282624",
+            "red_min_threshold"      : "166912",
+            "green_drop_probability" : "100",
+            "yellow_drop_probability": "100",
+            "red_drop_probability"   : "100"
         }
     },
 {%- endmacro %}
