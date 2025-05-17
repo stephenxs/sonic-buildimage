@@ -21,7 +21,7 @@ MLNX_SDK_DRIVERS_GITHUB_URL = https://github.com/Mellanox/Spectrum-SDK-Drivers
 MLNX_ASSETS_GITHUB_URL = https://github.com/Mellanox/Spectrum-SDK-Drivers-SONiC-Bins
 MLNX_SDK_ASSETS_RELEASE_TAG = sdk-$(MLNX_SDK_VERSION)-$(BLDENV)-$(CONFIGURED_ARCH)
 MLNX_SDK_ASSETS_URL = $(MLNX_ASSETS_GITHUB_URL)/releases/download/$(MLNX_SDK_ASSETS_RELEASE_TAG)
-MLNX_SDK_DEB_VERSION = $(subst -,.,$(subst _,.,$(MLNX_SDK_VERSION)))
+MLNX_SDK_DEB_VERSION = $(shell echo "$(MLNX_SDK_VERSION)" | sed 's/-/./g' | sed 's/_/./g' | sed 's/[^0-9a-zA-Z.+~]/./g')
 
 # Place here URL where SDK sources exist
 MLNX_SDK_SOURCE_BASE_URL =
