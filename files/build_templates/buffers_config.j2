@@ -6,20 +6,22 @@ def
 {%- endif %}
 {%- endmacro -%}
 
-{# Import port_role.j2 for port role determination #}
-{%- import 'port_role.j2' as port_role -%}
-
 {# Determine device topology and filename postfix #}
-{%- set switch_role = port_role.determine_switch_role() %}
-{%- if 'torrouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
-{%-     set filename_postfix = 't0' %}
-{%- elif 'leafrouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
-{%-     set filename_postfix = 't1' %}
-{%- elif 'spinerouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
-{%-     set filename_postfix = 't2' %}
+{%- if DEVICE_METADATA is defined and DEVICE_METADATA['localhost']['type'] is defined %}
+{%-     set switch_role = DEVICE_METADATA['localhost']['type'] %}
+{%-     if 'torrouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
+{%-         set filename_postfix = 't0' %}
+{%-     elif 'leafrouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
+{%-         set filename_postfix = 't1' %}
+{%-     elif 'spinerouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
+{%-         set filename_postfix = 't2' %}
+{%-     else %}
+{%-         set filename_postfix = set_default_topology() %}
+{%-     endif %}
 {%- else %}
 {%-     set filename_postfix = set_default_topology() %}
-{%- endif %}
+{%-     set switch_role      = '' %}
+{%- endif -%}
 
 {% set voq_chassis = false %}
 {%- if DEVICE_METADATA is defined and DEVICE_METADATA['localhost']['switch_type'] is defined and  DEVICE_METADATA['localhost']['switch_type']  == 'voq' %}
@@ -48,6 +50,69 @@ def
             'aznghub_spinerouter'    : '80000m'
             }
     -%}
+{%- endif %}
+
+{%- if cable_length is not defined %}
+{%- macro cable_length(port_name) %}
+    {%- set cable_len = [] %}
+    {%- for local_port in DEVICE_NEIGHBOR %}
+        {%- if local_port == port_name %}
+            {%- if DEVICE_NEIGHBOR_METADATA is defined and DEVICE_NEIGHBOR_METADATA[DEVICE_NEIGHBOR[local_port].name] %}
+                {%- set neighbor = DEVICE_NEIGHBOR_METADATA[DEVICE_NEIGHBOR[local_port].name] %}
+                {%- set neighbor_role = neighbor.type %}
+                {%- if 'edgezoneaggregator' == neighbor_role | lower %}
+                         {%- set neighbor_role = 'LeafRouter' %}
+                {%- endif %}
+                {%- if 'asic' == neighbor_role | lower %}
+                         {%- set roles1 = 'internal' %}
+                         {%- if 'internal' not in ports2cable %}
+                             {%- set _ = ports2cable.update({'internal': '5m'}) %}
+                         {%- endif -%}
+                {%- else %}
+                         {%- set roles1 = switch_role + '_' + neighbor_role %}
+                         {%- set roles2 = neighbor_role + '_' + switch_role %}
+                         {%- set roles1 = roles1 | lower %}
+                         {%- set roles2 = roles2 | lower %}
+                         {%- set roles1 = roles1.replace('backend', '') %}
+                         {%- set roles2 = roles2.replace('backend', '') %}
+                {%- endif %}
+                {%- if roles1 in ports2cable %}
+                    {%- if cable_len.append(ports2cable[roles1]) %}{% endif %}
+                {%- elif roles2 in ports2cable %}
+                    {%- if cable_len.append(ports2cable[roles2]) %}{% endif %}
+                {%- endif %}
+            {%- endif %}
+        {%- endif %}
+    {%- endfor %}
+    {%- if port_name in PORT_DPC -%}
+        {{ '0m' }}
+    {%- elif cable_len -%}
+        {{ cable_len.0 }}
+    {%- else %}
+        {%- if port_name.startswith('Ethernet-BP') %}
+            {%- if 'internal' not in ports2cable %}
+                {%- set _ = ports2cable.update({'internal': '5m'}) %}
+            {%- endif -%}
+            {%- set _ = cable_len.append(ports2cable['internal']) %}
+        {%- elif 'torrouter' in switch_role.lower() and 'mgmt' not in switch_role.lower()%}
+            {%- for local_port in VLAN_MEMBER %}
+                {%- if local_port[1] == port_name %}
+                    {%- set roles3 = switch_role + '_' + 'server' %}
+                    {%- set roles3 = roles3 | lower %}
+                    {%- set roles3 = roles3.replace('backend', '') %}
+                    {%- if roles3 in ports2cable %}
+                        {%- if cable_len.append(ports2cable[roles3]) %}{% endif %}
+                    {%- endif %}
+                {%- endif %}
+            {%- endfor %}
+        {%- endif %}
+        {%- if cable_len -%}
+            {{ cable_len.0 }}
+        {%- else -%}
+            {{ default_cable }}
+        {%- endif %}
+    {%- endif %}
+{%- endmacro %}
 {%- endif %}
 
 {%- set PORT_ALL  = [] %}
@@ -133,9 +198,6 @@ def
 {%- endfor %}
 {%- set port_names_inactive  = port_names_list_inactive  | join(',') %}
 
-{# Initialize port roles #}
-{%- set _ = port_role.determine_ports_roles(PORT_ALL) %}
-
 {
 {% if (defs.generate_cable_length_config is defined) %}
     {%- set port_names_list_all  = [] %}
@@ -148,7 +210,7 @@ def
     "CABLE_LENGTH": {
         "AZURE": {
     {% for port in PORT_ALL %}
-        {%- set cable = port_role.determine_cable_length(port, PORT_DPC, ports2cable, default_cable) %}
+        {%- set cable = cable_length(port) %}
         "{{ port }}": "{{ cable }}"{%- if not loop.last %},{% endif %}
 
     {% endfor %}
