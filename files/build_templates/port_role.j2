@@ -2,43 +2,18 @@
 {%- set ports_roles1 = {} %}
 {%- set ports_roles2 = {} %}
 {%- set ports_roles3 = {} %}
-{%- set uplink_ports = [] %}
-{%- set downlink_ports = [] %}
-{%- set role_to_ports = {} %}
-{%- set role_hierarchy = ['server', 'torrouter', 'leafrouter', 'spinerouter', 'regionalhub', 'aznghub'] %}
 
 {%- macro determine_switch_role() %}
-    {%- set switch_role = '' %}
-    {%- set switch_idx = -1 %}
     {%- if DEVICE_METADATA is defined and DEVICE_METADATA['localhost']['type'] is defined %}
         {%- set switch_role = DEVICE_METADATA['localhost']['type'] %}
-        {# Determine switch index in the role hierarchy #}
-        {%- for idx in range(role_hierarchy|length) %}
-            {%- if role_hierarchy[idx] in switch_role | lower %}
-                {%- set switch_idx = idx %}
-                {%- break %}
-            {%- endif %}
-        {%- endfor %}
+    {%- else %}
+        {%- set switch_role = '' %}
     {%- endif %}
-    {# Return as a tuple: role, index #}
-    {{ [switch_role, switch_idx] }}
+    {{ switch_role }}
 {%- endmacro -%}
 
 {%- macro determine_ports_roles(port_list) %}
-    {%- set switch_info = determine_switch_role() %}
-    {%- set switch_role = switch_info[0] %}
-    {%- set switch_idx = switch_info[1] %}
-    
-    {%- set _ = role_to_ports.clear() %}
-    {%- set _ = uplink_ports.clear() %}
-    {%- set _ = downlink_ports.clear() %}
-    
-    {# Initialize role_to_ports dictionary with empty lists for each role #}
-    {%- for role in role_hierarchy %}
-        {%- set _ = role_to_ports.update({role: []}) %}
-    {%- endfor %}
-    {%- set _ = role_to_ports.update({'unknown': []}) %}
-    
+    {%- set switch_role = determine_switch_role() %}
     {%- if DEVICE_NEIGHBOR is defined %}
         {%- for port_name in port_list %}
             {%- if port_name in DEVICE_NEIGHBOR %}
@@ -59,15 +34,6 @@
                         {%- set roles2 = roles2.replace('backend', '') %}
                         {%- set _ = ports_roles1.update({port_name: roles1}) %}
                         {%- set _ = ports_roles2.update({port_name: roles2}) %}
-                        
-                        {# Add port to role_to_ports dictionary based on neighbor role #}
-                        {%- set neighbor_role_lower = neighbor_role | lower %}
-                        {%- for role in role_hierarchy %}
-                            {%- if role in neighbor_role_lower %}
-                                {%- if role_to_ports[role].append(port_name) %}{% endif %}
-                                {%- break %}
-                            {%- endif %}
-                        {%- endfor %}
                     {%- endif %}
                 {%- endif %}
             {%- elif port_name.startswith('Ethernet-BP') %}
@@ -80,27 +46,9 @@
                         {%- set roles3 = roles3.replace('backend', '') %}
                         {%- set _ = ports_roles1.update({port_name: roles3}) %}
                         {%- set _ = ports_roles3.update({port_name: roles3}) %}
-                        {%- if role_to_ports['server'].append(port_name) %}{% endif %}
                     {%- endif %}
                 {%- endfor %}
-            {%- else %}
-                {%- if role_to_ports['unknown'].append(port_name) %}{% endif %}
             {%- endif %}
-        {%- endfor %}
-    {%- endif %}
-    
-    {# If switch role is found in hierarchy, classify ports #}
-    {%- if switch_idx >= 0 %}
-        {# Combine all uplink port lists (roles higher than the switch) #}
-        {%- for idx in range(switch_idx + 1, role_hierarchy|length) %}
-            {%- set uplink_role = role_hierarchy[idx] %}
-            {%- set _ = uplink_ports.extend(role_to_ports[uplink_role]) %}
-        {%- endfor %}
-        
-        {# Combine all downlink port lists (roles lower than the switch) #}
-        {%- for idx in range(switch_idx) %}
-            {%- set downlink_role = role_hierarchy[idx] %}
-            {%- set _ = downlink_ports.extend(role_to_ports[downlink_role]) %}
         {%- endfor %}
     {%- endif %}
 {%- endmacro -%}
@@ -140,20 +88,3 @@
         {{ 'false' }}
     {%- endif %}
 {%- endmacro %}
-
-{%- macro is_uplink_port(port_name) %}
-    {%- if port_name in uplink_ports %}
-        {{ 'true' }}
-    {%- else %}
-        {{ 'false' }}
-    {%- endif %}
-{%- endmacro %}
-
-{%- macro is_downlink_port(port_name) %}
-    {%- if port_name in downlink_ports %}
-        {{ 'true' }}
-    {%- else %}
-        {{ 'false' }}
-    {%- endif %}
-{%- endmacro %}
-
