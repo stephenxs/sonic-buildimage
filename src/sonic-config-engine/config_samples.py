@@ -21,124 +21,6 @@ def generate_common_config(data):
     }
     return data
 
-# Role hierarchy as defined in port_role.j2
-ROLE_HIERARCHY = ['server', 'torrouter', 'leafrouter', 'spinerouter', 'regionalhub', 'aznghub']
-
-def get_role_index(role):
-    """Find the index of a role in the hierarchy"""
-    role_lower = role.lower()
-    for i, r in enumerate(ROLE_HIERARCHY):
-        if r in role_lower:
-            return i
-    return -1
-
-def get_adjacent_roles(switch_role):
-    """Get the roles right before and after the switch role in hierarchy"""
-    idx = get_role_index(switch_role)
-    if idx == -1:
-        return None, None
-        
-    downlink_role = ROLE_HIERARCHY[idx-1] if idx > 0 else None
-    uplink_role = ROLE_HIERARCHY[idx+1] if idx < len(ROLE_HIERARCHY)-1 else None
-    
-    # Convert to proper case for actual metadata
-    downlink_role_formal = None
-    uplink_role_formal = None
-    
-    if downlink_role:
-        if downlink_role == 'torrouter':
-            downlink_role_formal = 'ToRRouter'
-        elif downlink_role == 'leafrouter':
-            downlink_role_formal = 'LeafRouter'
-        elif downlink_role == 'spinerouter':
-            downlink_role_formal = 'SpineRouter'
-        elif downlink_role == 'regionalhub':
-            downlink_role_formal = 'RegionalHub'
-        elif downlink_role == 'aznghub':
-            downlink_role_formal = 'AzNGHub'
-        elif downlink_role == 'server':
-            downlink_role_formal = 'Server'
-    
-    if uplink_role:
-        if uplink_role == 'torrouter':
-            uplink_role_formal = 'ToRRouter'
-        elif uplink_role == 'leafrouter':
-            uplink_role_formal = 'LeafRouter'
-        elif uplink_role == 'spinerouter':
-            uplink_role_formal = 'SpineRouter'
-        elif uplink_role == 'regionalhub':
-            downlink_role_formal = 'RegionalHub'
-        elif uplink_role == 'aznghub':
-            uplink_role_formal = 'AzNGHub'
-    
-    return downlink_role_formal, uplink_role_formal
-
-def generate_device_name(role, index):
-    """Generate a device name based on role and index"""
-    return f"{role.lower()}-{index}"
-
-def generate_neighbor_tables(data, downlink_ports=None, uplink_ports=None):
-    """Generate DEVICE_NEIGHBOR and DEVICE_NEIGHBOR_METADATA tables based on port roles"""
-    if 'DEVICE_METADATA' not in data or 'localhost' not in data['DEVICE_METADATA'] or 'type' not in data['DEVICE_METADATA']['localhost']:
-        return data
-    
-    # Get switch role from metadata
-    switch_role = data['DEVICE_METADATA']['localhost']['type']
-    
-    # Get corresponding downlink and uplink roles
-    downlink_role, uplink_role = get_adjacent_roles(switch_role)
-    
-    # If no roles could be determined, return original data
-    if not downlink_role and not uplink_role:
-        return data
-    
-    # Initialize tables if they don't exist
-    if 'DEVICE_NEIGHBOR' not in data:
-        data['DEVICE_NEIGHBOR'] = {}
-    
-    if 'DEVICE_NEIGHBOR_METADATA' not in data:
-        data['DEVICE_NEIGHBOR_METADATA'] = {}
-    
-    # Process downlink ports if provided
-    if downlink_role and downlink_ports:
-        for i, port in enumerate(downlink_ports):
-            if port:  # Skip empty port names
-                device_name = generate_device_name(downlink_role, i+1)
-                
-                # Add to DEVICE_NEIGHBOR
-                data['DEVICE_NEIGHBOR'][port] = {
-                    "name": device_name,
-                    "port": "Ethernet0"
-                }
-                
-                # Add to DEVICE_NEIGHBOR_METADATA
-                data['DEVICE_NEIGHBOR_METADATA'][device_name] = {
-                    "type": downlink_role,
-                    "location": "middleofnowhere",
-                    "hostname": device_name
-                }
-    
-    # Process uplink ports if provided
-    if uplink_role and uplink_ports:
-        for i, port in enumerate(uplink_ports):
-            if port:  # Skip empty port names
-                device_name = generate_device_name(uplink_role, i+1)
-                
-                # Add to DEVICE_NEIGHBOR
-                data['DEVICE_NEIGHBOR'][port] = {
-                    "name": device_name,
-                    "port": "Ethernet0"
-                }
-                
-                # Add to DEVICE_NEIGHBOR_METADATA
-                data['DEVICE_NEIGHBOR_METADATA'][device_name] = {
-                    "type": uplink_role,
-                    "location": "middleofnowhere",
-                    "hostname": device_name
-                }
-    
-    return data
-
 # The following config generation methods exits:
 #    't1': generate_t1_sample_config,
 #    'l2': generate_l2_config,
@@ -164,7 +46,7 @@ def generate_l3_config(data):
         data['INTERFACE']['{}'.format(port)] = {}
     return data;
 
-def generate_t1_sample_config(data, downlink_ports=None, uplink_ports=None):
+def generate_t1_sample_config(data):
     data['DEVICE_METADATA']['localhost']['hostname'] = 'sonic'
     data['DEVICE_METADATA']['localhost']['type'] = 'LeafRouter'
     data['DEVICE_METADATA']['localhost']['bgp_asn'] = '65100'
@@ -194,11 +76,6 @@ def generate_t1_sample_config(data, downlink_ports=None, uplink_ports=None):
                 'keepalive': '60'
                 }
         port_count += 1
-    
-    # If uplink/downlink ports were provided, generate neighbor tables
-    if uplink_ports or downlink_ports:
-        data = generate_neighbor_tables(data, downlink_ports, uplink_ports)
-    
     return data
 
 def generate_t1_smartswitch_switch_sample_config(data, ss_config):
@@ -292,7 +169,7 @@ def generate_t1_smartswitch_dpu_sample_config(data, ss_config):
 
     return data
 
-def generate_t1_smartswitch_sample_config(data, downlink_ports=None, uplink_ports=None):
+def generate_t1_smartswitch_sample_config(data):
     ss_config = smartswitch_config.get_smartswitch_config(data['DEVICE_METADATA']['localhost']['hwsku'])
 
     if smartswitch_config.DPU_TABLE in ss_config:
@@ -381,11 +258,6 @@ def generate_l2_config(data):
         else:
             data['PORT'][port].setdefault('admin_status', 'up')
             data['VLAN_MEMBER']['Vlan1000|{}'.format(port)] = {'tagging_mode': 'untagged'}
-    
-    # If uplink/downlink ports were provided and not dualtor, generate neighbor tables
-    if (uplinks or downlinks) and not is_dualtor:
-        data = generate_neighbor_tables(data, downlinks, uplinks)
-        
     return data
 
 _sample_generators = {
@@ -400,15 +272,6 @@ _sample_generators = {
 def get_available_config():
     return list(_sample_generators.keys())
 
-def generate_sample_config(data, setting_name, downlink_ports=None, uplink_ports=None):
+def generate_sample_config(data, setting_name):
     data = generate_common_config(data)
-    
-    # Get the generator function
-    generator = _sample_generators[setting_name.lower()]
-    
-    # Check if the generator accepts downlink_ports and uplink_ports
-    # t1 and l2 presets accept these parameters
-    if setting_name.lower() in ['t1', 'l2', 't1-smartswitch']:
-        return generator(data, downlink_ports, uplink_ports)
-    else:
-        return generator(data)
+    return _sample_generators[setting_name.lower()](data)
