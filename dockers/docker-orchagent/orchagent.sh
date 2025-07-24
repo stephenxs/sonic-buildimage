@@ -93,23 +93,20 @@ else
     ORCHAGENT_ARGS+="-m $MAC_ADDRESS"
 fi
 
-# Enable ZMQ
+# Enable ZMQ for SmartSwitch
 LOCALHOST_SUBTYPE=`sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "subtype"`
 if [[ x"${LOCALHOST_SUBTYPE}" == x"SmartSwitch" ]]; then
     midplane_mgmt_state=$( ip -json -4 addr show eth0-midplane | jq -r ".[0].operstate" )
     mgmt_ip=$( ip -json -4 addr show eth0 | jq -r ".[0].addr_info[0].local" )
     if [[ $midplane_mgmt_state == "UP" ]]; then
         # Enable ZMQ with eth0-midplane interface name
-        ORCHAGENT_ARGS+=" -q tcp://eth0-midplane"
+        ORCHAGENT_ARGS+=" -q tcp://eth0-midplane:8100"
     elif [[ $mgmt_ip != "" ]] && [[ $mgmt_ip != "null" ]]; then
         # If eth0-midplane interface does not up, enable ZMQ with eth0 address
-        ORCHAGENT_ARGS+=" -q tcp://${mgmt_ip}"
+        ORCHAGENT_ARGS+=" -q tcp://${mgmt_ip}:8100"
     else
-        ORCHAGENT_ARGS+=" -q tcp://127.0.0.1"
+        ORCHAGENT_ARGS+=" -q tcp://127.0.0.1:8100"
     fi
-else
-    # For other platforms, use the default ZMQ address
-    ORCHAGENT_ARGS+=" -q tcp://127.0.0.1"
 fi
 
 # Add VRF parameter when mgmt-vrf enabled
