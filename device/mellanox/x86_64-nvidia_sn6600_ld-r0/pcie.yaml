@@ -203,9 +203,9 @@
 - bus: '06'
   dev: '00'
   fn: '0'
-  id: 161f
-  name: 'USB controller: Advanced Micro Devices, Inc. [AMD] Rembrandt USB4 XHCI controller
-    #8'
+  id: 145a
+  name: 'Non-Essential Instrumentation [1300]: Advanced Micro Devices, Inc. [AMD]
+    Zeppelin/Raven/Raven2 PCIe Dummy Function'
 - bus: '06'
   dev: '00'
   fn: '3'
