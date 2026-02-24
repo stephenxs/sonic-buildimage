@@ -104,6 +104,30 @@ export FILES_PATH
 export PROJECT_ROOT
 export PTF_ENV_PY_VER
 
+# When using make -f slave.mk, the main Makefile is never read, so SONIC_OVERRIDE_BUILD_VARS
+# is not applied as make command-line arguments (unlike the docker path which passes them via
+# SONIC_BUILD_INSTRUCTION in Makefile.work). Re-invoke make with the override vars as
+# arguments so that platform rules (e.g. sdk.mk, mlnx-sai.mk) see MLNX_*, SONIC_* etc.
+# When in re-invoke mode we only define these two rules and skip including the rest of the
+# makefile so the target has no other prerequisites (avoids jobserver deadlock with inner make).
+ifneq ($(SONIC_OVERRIDE_BUILD_VARS),)
+ifneq ($(SONIC_OVERRIDE_APPLIED),1)
+_apply_sonic_overrides:
+	@( unset MAKEFLAGS MFLAGS; $(MAKE) -j$(SONIC_BUILD_JOBS) -f $(firstword $(MAKEFILE_LIST)) SONIC_OVERRIDE_APPLIED=1 $(SONIC_OVERRIDE_BUILD_VARS) $(MAKECMDGOALS) )
+%:: _apply_sonic_overrides
+	@:
+.PHONY: _apply_sonic_overrides
+_slave_skip_includes := 1
+endif
+endif
+export SONIC_OVERRIDE_BUILD_VARS
+
+# When in re-invoke-only mode we must not include deb/docker rules (no other prerequisites).
+ifeq ($(_slave_skip_includes),1)
+###############################################################################
+## Re-invoke only: no further includes
+###############################################################################
+else
 ###############################################################################
 ## Utility rules
 ## Define configuration, help etc.
@@ -1833,3 +1857,6 @@ jessie : $$(addprefix $(TARGET_PATH)/,$$(JESSIE_DOCKER_IMAGES)) \
 ## To build some commonly used libs. Some submodules depend on these libs.
 ## It is used in component pipelines. For example: swss needs libnl, libyang
 lib-packages: $(addprefix $(DEBS_PATH)/,$(LIBNL3) $(LIBYANG) $(LIBYANG3) $(PROTOBUF) $(LIB_SONIC_DASH_API))
+
+endif
+## end of ifeq ($(_slave_skip_includes),1) from top of file

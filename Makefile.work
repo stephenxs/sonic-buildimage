@@ -345,6 +345,12 @@ ifdef SONIC_BUILD_QUIETER
 	DOCKER_RUN += -e "SONIC_BUILD_QUIETER=$(SONIC_BUILD_QUIETER)"
 endif
 
+# Pass SONIC_OVERRIDE_BUILD_VARS into the container so that make -f slave.mk run inside
+# the container (e.g. after KEEP_SLAVE_ON=yes) sees the same overrides.
+ifneq ($(SONIC_OVERRIDE_BUILD_VARS),)
+	DOCKER_RUN += -e "SONIC_OVERRIDE_BUILD_VARS=$(SONIC_OVERRIDE_BUILD_VARS)"
+endif
+
 # Mount the Signing key and Certificate in the slave container
 ifneq ($(SECURE_UPGRADE_DEV_SIGNING_KEY),)
     DOCKER_RUN += -v $(SECURE_UPGRADE_DEV_SIGNING_KEY):$(SECURE_UPGRADE_DEV_SIGNING_KEY):ro
