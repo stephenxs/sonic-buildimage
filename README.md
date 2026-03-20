@@ -349,6 +349,11 @@ on the SAI version for each SONiC release.
 * If you are running make for the first time, a sonic-slave-${USER} docker image
   will be built automatically.
   This may take a while, but it is a one-time action, so please be patient.
+* If the slave image tag changes (e.g. checkout path, edits under `sonic-slave-*`)
+  but you want to keep using an image you already built, run `make showtag` once
+  to record `sonic-slave-…-${USER}:<tag>`, then pass
+  `SONIC_SLAVE_REUSE_IMAGE` and `SONIC_SLAVE_REUSE_TAG` on later make
+  invocations to skip rebuilding the slave. See `Makefile.work` for details.
 * The root user account is disabled. However, the created user can `sudo`.
 * The target directory is `./target`, containing the NOS installer image
   and docker images.
