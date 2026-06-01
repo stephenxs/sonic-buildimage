@@ -32,6 +32,18 @@ from sonic_platform import chassis
 from sonic_platform import sfp
 
 
+def _set_monotonic_exit_by_timeout(mock_time, timeout_ms):
+    """Exit an empty poll loop when no SFP events are reported."""
+    timeout_sec = timeout_ms / 1000.0
+    mock_time.side_effect = [0.0, timeout_sec + 1.0]
+
+
+def _set_monotonic_allow_poll_loop(mock_time, timeout_ms=1000, max_poll_iterations=10):
+    """Allow multiple poll-loop iterations, then fall back to timeout exit."""
+    timeout_sec = timeout_ms / 1000.0
+    mock_time.side_effect = [0.0] * (max_poll_iterations + 1) + [timeout_sec + 1.0]
+
+
 class TestChangeEventSeekFailure:
     """Cover OSError from fd.seek(0) in change-event polling loops."""
 
@@ -63,13 +75,14 @@ class TestChangeEventSeekFailure:
         mock_file.fileno = mock.MagicMock(return_value=1)
         mock_file.seek.side_effect = OSError(5, 'seek failed')
 
-        mock_time.side_effect = [0, 1000]
+        _set_monotonic_exit_by_timeout(mock_time, 1000)
 
         _, change_event = c.get_change_event(1000)
         assert 'sfp' in change_event and not change_event['sfp']
         mock_file.seek.assert_called_with(0)
         mock_file.read.assert_not_called()
 
+    @mock.patch('sonic_platform.chassis.Chassis.get_asic_change_event')
     @mock.patch('sonic_platform.wait_sfp_ready_task.WaitSfpReadyTask.get_ready_set')
     @mock.patch('sonic_platform.sfp.SFP.get_fd')
     @mock.patch('select.poll')
@@ -113,7 +126,7 @@ class TestChangeEventSeekFailure:
         mock_get_fd.side_effect = get_fd
         mock_ready.return_value = set()
 
-        mock_time.side_effect = [0, 1000]
+        _set_monotonic_exit_by_timeout(mock_time, 1000)
 
         _, change_event = c.get_change_event(1000)
         assert 'sfp' in change_event and not change_event['sfp']
@@ -148,34 +161,36 @@ class TestChangeEvent:
         mock_file.fileno = mock.MagicMock(return_value = 1)
 
         timeout = 1000
-        # mock time function so that the while loop exit early
-        mock_time.side_effect = [0, timeout]
 
         # no event, expect returning empty change event
+        _set_monotonic_exit_by_timeout(mock_time, timeout)
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and not change_event['sfp']
 
         # dummy event, expect returning empty change event
         sfp_index = s.sdk_index + 1
         mock_poll.poll.return_value = [(1, 10)]
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_exit_by_timeout(mock_time, timeout)
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and not change_event['sfp']
 
         # plug out event, expect returning remove event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_status.return_value = sfp.SFP_STATUS_REMOVED
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and sfp_index in change_event['sfp'] and change_event['sfp'][sfp_index] == sfp.SFP_STATUS_REMOVED
 
         # error event, expect returning error event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_status.return_value = sfp.SFP_STATUS_ERROR
         s.get_error_info_from_sdk_error_type = mock.MagicMock(return_value=('2', 'some error'))
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and sfp_index in change_event['sfp'] and change_event['sfp'][sfp_index] == '2'
         assert 'sfp_error' in change_event and sfp_index in change_event['sfp_error'] and change_event['sfp_error'][sfp_index] == 'some error'
     
+    @mock.patch('sonic_platform.sfp.SFP.wait_sfp_eeprom_ready', mock.MagicMock())
+    @mock.patch('sonic_platform.chassis.utils.read_int_from_file', return_value=1)
+    @mock.patch('os.path.exists', return_value=True)
     @mock.patch('sonic_platform.chassis.Chassis.get_asic_change_event')
     @mock.patch('sonic_platform.wait_sfp_ready_task.WaitSfpReadyTask.get_ready_set')    
     @mock.patch('sonic_platform.sfp.SFP.get_fd')
@@ -186,7 +201,10 @@ class TestChangeEvent:
     @mock.patch('sonic_platform.chassis.extract_RJ45_ports_index', mock.MagicMock(return_value=[]))
     @mock.patch('sonic_platform.chassis.extract_cpo_ports_index', mock.MagicMock(return_value=[]))
     @mock.patch('sonic_platform.module_host_mgmt_initializer.ModuleHostMgmtInitializer.initialize', mock.MagicMock())
-    def test_get_change_event_for_module_host_management_mode(self, mock_time, mock_create_poll, mock_get_fd, mock_ready, mock_get_asic_event):
+    def test_get_change_event_for_module_host_management_mode(
+        self, mock_time, mock_create_poll, mock_get_fd, mock_ready, mock_get_asic_event,
+        mock_exists, mock_read_int,
+    ):
         """Test steps:
             1. Simulate polling with no event
             2. Simulate polling the first dummy event. (SDK always return a event when first polling the fd even if there is no change)
@@ -229,22 +247,21 @@ class TestChangeEvent:
         mock_get_fd.side_effect = get_fd
         
         timeout = 1000
-        # mock time function so that the while loop exit early
-        mock_time.side_effect = [0, timeout]
-        
+
         # no event, expect returning empty change event
+        _set_monotonic_exit_by_timeout(mock_time, timeout)
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and not change_event['sfp']
         
         # dummy event, expect returning empty change event
         sfp_index = s.sdk_index + 1
         mock_poll.poll.return_value = [(1, 10)]
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_exit_by_timeout(mock_time, timeout)
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and not change_event['sfp']
         
         # plug out event, expect returning remove event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_hw_present_file.read.return_value = sfp.SFP_STATUS_REMOVED
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and sfp_index in change_event['sfp'] and change_event['sfp'][sfp_index] == sfp.SFP_STATUS_REMOVED
@@ -258,7 +275,8 @@ class TestChangeEvent:
         s.get_power_good = mock.MagicMock(return_value=True)
         s.determine_control_type = mock.MagicMock(return_value=sfp.SFP_FW_CONTROL)
         s.set_control_type = mock.MagicMock()
-        mock_time.side_effect = [0, timeout]
+        mock_poll.poll.return_value = [(1, 10)]
+        _set_monotonic_allow_poll_loop(mock_time, timeout)
         mock_ready.return_value = set([0])
         mock_hw_present_file.read.return_value = sfp.SFP_STATUS_INSERTED
         _, change_event = c.get_change_event(timeout)
@@ -267,11 +285,10 @@ class TestChangeEvent:
         assert 1 not in c.registered_fds # stop polling hw_present
         assert 2 not in c.registered_fds # stop polling power_good
         assert 3 in c.registered_fds # start polling present because it is firmware control
-        print(c.registered_fds)
         
         # error event, expect returning error
         mock_ready.return_value = []
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_poll.poll.return_value = [(3, 10)]
         mock_present_file.read.return_value = sfp.SFP_STATUS_ERROR
         s.get_error_info_from_sdk_error_type = mock.MagicMock(return_value=('2', 'some error'))
@@ -280,7 +297,7 @@ class TestChangeEvent:
         assert 'sfp_error' in change_event and sfp_index in change_event['sfp_error'] and change_event['sfp_error'][sfp_index] == 'some error'
         
         # plug out the firmware control cable, expect returning remove event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_present_file.read.return_value = sfp.SFP_STATUS_REMOVED
         _, change_event = c.get_change_event(timeout)
         assert 'sfp' in change_event and sfp_index in change_event['sfp'] and change_event['sfp'][sfp_index] == sfp.SFP_STATUS_REMOVED
@@ -290,7 +307,7 @@ class TestChangeEvent:
         assert 3 not in c.registered_fds # stop polling present
         
         # plug in a software control cable, expect returning insert event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_ready.return_value = set([0])
         mock_poll.poll.return_value = [(1, 10)]
         mock_hw_present_file.read.return_value = sfp.SFP_STATUS_INSERTED
@@ -303,7 +320,7 @@ class TestChangeEvent:
         assert s.state == sfp.STATE_SW_CONTROL
         
         # power bad event, expect returning error event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_poll.poll.return_value = [(2, 10)]
         mock_power_good_file.read.return_value = '0'
         _, change_event = c.get_change_event(timeout)
@@ -311,7 +328,7 @@ class TestChangeEvent:
         assert s.state == sfp.STATE_POWER_BAD
         
         # power good event, expect returning insert event
-        mock_time.side_effect = [0, timeout]
+        _set_monotonic_allow_poll_loop(mock_time)
         mock_poll.poll.return_value = [(2, 10)]
         mock_power_good_file.read.return_value = '1'
         _, change_event = c.get_change_event(timeout)
