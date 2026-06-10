@@ -370,9 +370,7 @@ reproducibility notes, and known limitations.
   `SONIC_SLAVE_REUSE_TRIXIE_IMAGE` / `SONIC_SLAVE_REUSE_TRIXIE_TAG` for
   `BLDENV=trixie`, on later make invocations to skip rebuilding the slave. You
   can export several pairs in your environment when switching between releases.
-  (Previously `SONIC_SLAVE_REUSE_IMAGE` / `SONIC_SLAVE_REUSE_TAG` were used
-  globally; use `SONIC_SLAVE_REUSE_TRIXIE_*` / `SONIC_SLAVE_REUSE_BOOKWORM_*` as
-  appropriate.) See `Makefile.work` for details.
+  See `Makefile.work` for details.
 * The root user account is disabled. However, the created user can `sudo`.
 * The target directory is `./target`, containing the NOS installer image
   and docker images.

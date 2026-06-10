@@ -195,6 +195,7 @@ endif
 SLAVE_IMAGE = $(SLAVE_BASE_IMAGE)-$(USER_LC)
 
 # Optional per-BLDENV reuse of an existing sonic-slave-user image (see header comment).
+SONIC_SLAVE_REUSE_SLAVE :=
 SONIC_SLAVE_REUSE_KIND :=
 SONIC_SLAVE_REUSE_EFFECTIVE_IMAGE :=
 SONIC_SLAVE_REUSE_EFFECTIVE_TAG :=
@@ -618,7 +619,7 @@ SONIC_SLAVE_USER_BUILD = \
 		docker inspect --type image $(SLAVE_IMAGE):$(SLAVE_TAG) &> /dev/null; \
 	} || \
 	{ \
-		echo "ERROR: Slave user image $(SLAVE_IMAGE):$(SLAVE_TAG) not found. Build once without SONIC_SLAVE_REUSE_<release>_* (e.g. make sonic-slave-build), or set reuse vars for this BLDENV from output of make showtag."; \
+                echo "ERROR: Slave user image $(SLAVE_IMAGE):$(SLAVE_TAG) not found. Build once without SONIC_SLAVE_REUSE_$(SONIC_SLAVE_REUSE_KIND)_* (e.g. make sonic-slave-build), or set SONIC_SLAVE_REUSE_$(SONIC_SLAVE_REUSE_KIND)_IMAGE and SONIC_SLAVE_REUSE_$(SONIC_SLAVE_REUSE_KIND)_TAG for this BLDENV from output of make showtag."; \
 		exit 1; \
 	}
 else
