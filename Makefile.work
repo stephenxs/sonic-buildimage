@@ -550,6 +550,7 @@ DOCKER_USER_BUILD = docker build $(DOCKER_NO_CACHE_FLAG) \
 	       --build-arg guid=$(shell id -g) \
 	       --build-arg hostname=$(shell echo $$HOSTNAME) \
                --build-arg slave_base_tag_ref=$(SLAVE_BASE_TAG) \
+	       --label com.sonic.base-tag=$(SLAVE_BASE_TAG) \
 	       -t $(SLAVE_IMAGE):$(SLAVE_TAG) \
 	       -f $(SLAVE_DIR)/Dockerfile.user \
 	       $(SLAVE_DIR) $(SPLIT_LOG) $(DOCKER_LOG)
@@ -621,7 +622,16 @@ SONIC_SLAVE_USER_BUILD = \
 	{ \
                 echo "ERROR: Slave user image $(SLAVE_IMAGE):$(SLAVE_TAG) not found. Build once without SONIC_SLAVE_REUSE_$(SONIC_SLAVE_REUSE_KIND)_* (e.g. make sonic-slave-build), or set SONIC_SLAVE_REUSE_$(SONIC_SLAVE_REUSE_KIND)_IMAGE and SONIC_SLAVE_REUSE_$(SONIC_SLAVE_REUSE_KIND)_TAG for this BLDENV from output of make showtag."; \
 		exit 1; \
-	}
+	}; \
+	slave_base_tag=$$(docker inspect --type image --format '{{if .Config.Labels}}{{index .Config.Labels "com.sonic.base-tag"}}{{end}}' $(SLAVE_IMAGE):$(SLAVE_TAG)); \
+	if [ -n "$$slave_base_tag" ] && [ "$$slave_base_tag" != "$(SLAVE_BASE_TAG)" ]; then \
+		if [ -n "$(filter cache wcache rwcache,$(SONIC_DPKG_CACHE_METHOD) $(SONIC_DPKG_CACHE_METHOD_OVERRIDE))" ]; then \
+			echo "ERROR: Reused slave user image $(SLAVE_IMAGE):$(SLAVE_TAG) was built from slave base tag $$slave_base_tag, but the current slave base tag is $(SLAVE_BASE_TAG). Refusing to use a stale image while DPKG cache writes are enabled."; \
+			exit 1; \
+		else \
+			echo "WARNING: Reused slave user image $(SLAVE_IMAGE):$(SLAVE_TAG) was built from slave base tag $$slave_base_tag, but the current slave base tag is $(SLAVE_BASE_TAG)."; \
+		fi; \
+	fi
 else
 SONIC_SLAVE_USER_BUILD = \
 	{ \
